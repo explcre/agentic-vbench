@@ -1,0 +1,36 @@
+version = "1.0"
+
+[task]
+name = "agentic-vbench/sortviz-heapsort-swap-ledger-s7"
+
+[metadata]
+difficulty = "hard"
+category = "video-understanding"
+tags = ["video-understanding", "algorithm-visualization", "event-timeline", "synthetic-ground-truth", "agentic-vbench-understanding"]
+# Silent bar-sort animation, 80 distinct-height bars, sorted by a random-pivot
+# quicksort (seed 7). Ground truth = the exact swap ledger emitted by the generator
+# (tools/gen_sortviz.py); the random pivots make the swap order unrecoverable from the
+# initial frame, so the answer is not a function of any single frame.
+source = "synthetic: tools/gen_sortviz.py --seed 7 --n 80 (rendered mp4, self-hosted on HF)"
+
+[environment]
+build_timeout_sec = 2400.0
+cpus = 4
+memory_mb = 8192
+# A ~12-minute 720p clip is modest; give the build and trial room.
+storage_mb = 8192
+# The clip is baked at build time and the answer is not online: keep this false.
+allow_internet = false
+
+[environment.env]
+HF_TOKEN = "${HF_TOKEN:-}"
+
+[[steps]]
+name = "solve"
+
+[steps.agent]
+# 269 swaps over ~12 minutes: give the agent real time to sample and tally.
+timeout_sec = 3600.0
+
+[steps.verifier]
+timeout_sec = 600.0
