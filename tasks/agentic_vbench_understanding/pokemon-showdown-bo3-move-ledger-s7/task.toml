@@ -1,0 +1,32 @@
+version = "1.0"
+
+[task]
+name = "agentic-vbench/pokemon-showdown-bo3-move-ledger-s7"
+
+[metadata]
+difficulty = "hard"
+category = "video-understanding"
+tags = ["video-understanding", "game-analysis", "pokemon", "event-timeline", "synthetic-ground-truth", "agentic-vbench-understanding"]
+# Best-of-3 Gen9 Random Battle series rendered with the official replay engine, the
+# move-name text bar hidden. Ground truth = the simulator's own move ledger (388
+# moves) emitted by tools/p2_pokemon/gen_series.js (base seed 7). Video self-hosted on HF.
+source = "synthetic: pokemon-showdown 0.11.10 + gen_series.js --seed 7 (rendered mp4)"
+
+[environment]
+build_timeout_sec = 2400.0
+cpus = 4
+memory_mb = 8192
+storage_mb = 8192
+allow_internet = false
+
+[environment.env]
+HF_TOKEN = "${HF_TOKEN:-}"
+
+[[steps]]
+name = "solve"
+
+[steps.agent]
+timeout_sec = 3600.0
+
+[steps.verifier]
+timeout_sec = 600.0
