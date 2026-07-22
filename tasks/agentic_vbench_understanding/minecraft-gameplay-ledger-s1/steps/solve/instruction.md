@@ -1,14 +1,14 @@
 # Minecraft First-Person Gameplay Ledger Reconstruction
 
 You are given one video at `/workspace/materials/game.mp4`: a ~10-minute **first-person**
-recording of a player exploring a Minecraft world. The player walks and looks around,
-**mines** blocks (the view turns to face each block as it breaks), and **fights** a mob.
+recording of a player exploring a Minecraft world. The player walks around purposefully,
+**mines** blocks (chopping trees, digging resources — the view turns to face each block
+as it breaks), and **kills** animals it hunts.
 
-Reconstruct the player's deliberate action ledger **in the order the actions happen**.
-Report two kinds of action:
+Reconstruct the player's deliberate action ledger **in the order the actions happen**:
 
 - **mine** — the player breaks a block; report the block type.
-- **kill** — the player defeats a mob; report the mob type.
+- **kill** — the player kills a mob; report the mob type.
 
 Identify block and mob types from their rendered textures. Use any tools in the image
 (for example `ffmpeg` and `ffprobe`) to seek through and sample the video. There is no
@@ -16,32 +16,26 @@ HUD or text overlay — your only evidence is the rendered first-person view.
 
 ## What to submit
 
-Write `/workspace/output/solution.json` in exactly this shape, with actions in
-chronological order (earliest first):
+Write `/workspace/output/solution.json`, actions in chronological order:
 
 ```json
 {
   "events": [
     {"action": "mine", "target": "oak_log"},
-    {"action": "mine", "target": "dirt"},
-    {"action": "kill", "target": "pig"}
+    {"action": "mine", "target": "oak_leaves"},
+    {"action": "kill", "target": "chicken"}
   ]
 }
 ```
 
 - `action`: `mine` or `kill`.
-- `target`: for `mine`, one of the block types below; for `kill`, the mob type.
+- `target`: a block type (for `mine`) or a mob type (for `kill`) from the vocab below.
 
-## Block vocabulary (closed)
+## Vocabulary (closed)
 
-Blocks mined in this video are among:
-
-- birch_log
-- dirt
-- grass_block
-- oak_leaves
-- oak_log
-- stone
+Blocks: `oak_log`, `birch_log`, `spruce_log`, `oak_leaves`, `spruce_leaves`,
+`grass_block`, `dirt`, `stone`, `cobblestone`, `sand`, `gravel`.
+Mobs: `chicken`, `cow`, `pig`, `sheep`.
 
 ## Rules
 

@@ -1,19 +1,20 @@
-# Calibration — minecraft-gameplay-ledger-s1
+# Calibration — minecraft-gameplay-ledger-s1 (v4: purposeful pathfinder gameplay)
 
-Order-aware LCS-F1 scorer over (action, target) tokens. Oracle 1.0, empty near 0.
-GT = bot's own mine/kill action order, 91 events (90 mine of 6 block types + 1 kill),
-first-person, ~10:01.
+Order-aware LCS-F1 over (action, target) tokens. Oracle 1.0, empty near 0. GT = the
+bot's own mine/kill action order (mineflayer-pathfinder purposeful play: chop trees,
+hunt animals, gather). 55 events, first-person, ~10:22.
 
 | run | score | notes |
 |---|---|---|
 | oracle | 1.0 | verified |
 | empty | 0.0 | verified |
-| correct multiset, shuffled | 0.56 | see NOTE: low block-type diversity weakens order signal |
-| degenerate all-"mine dirt" | 0.36 | known-answer exploit (needs GT distribution; blind agent can't) |
+| degenerate all-"mine oak_log" | 0.44 | known-answer exploit (needs GT distribution) |
+| correct multiset, shuffled | 0.62 | see LIMITATION |
 | Codex / Antigravity / Claude | _to run_ | |
 
-NOTE (verifier strength): natural mining yields few, repeated block types, so LCS partly
-measures the block multiset rather than strict order. To harden (make it clearly <0.10
-for agents and order-sensitive), increase block-type diversity — a scripted varied
-session across biomes/materials, or a richer action vocabulary (craft/place/open/eat).
-Tracked as a follow-up; ablations (single_frame/no_media/frame_dump) still to run.
+LIMITATION (verifier strength): a single forest biome yields few, repeated block types
+(oak_log/oak_leaves dominant) + a couple mob kinds, so LCS partly measures the multiset
+rather than strict order. To harden for the <0.10 bar: a multi-biome route (forest ->
+beach -> mountain -> desert) for diverse blocks/ores, more distinct mob types, and
+crafting/placing events. The v4 render nails the REAL first-person gameplay look
+(pathfinder navigation, chopping trees, hunting); diversity-hardening is the next step.

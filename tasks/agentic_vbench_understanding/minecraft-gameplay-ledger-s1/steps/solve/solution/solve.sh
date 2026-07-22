@@ -1,5 +1,4 @@
 #!/bin/bash
-# Oracle: verified ordered action ledger (mine/kill) from the bot's own events.
 set -euo pipefail
 mkdir -p /workspace/output
 cat > /workspace/output/solution.json <<'ORACLE_JSON'
@@ -7,51 +6,23 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
  "events": [
   {
    "action": "mine",
-   "target": "oak_leaves"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "grass_block"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "birch_log"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "birch_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
@@ -63,15 +34,7 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
   },
   {
    "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "birch_log"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
@@ -79,297 +42,189 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
   },
   {
    "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "birch_log"
-  },
-  {
-   "action": "mine",
    "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
    "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "stone"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "stone"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
-   "action": "mine",
-   "target": "stone"
   },
   {
    "action": "kill",
-   "target": "pig"
+   "target": "chicken"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
+  },
+  {
+   "action": "kill",
+   "target": "chicken"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "gravel"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "gravel"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "gravel"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "gravel"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "gravel"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "grass_block"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
+  },
+  {
+   "action": "kill",
+   "target": "chicken"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "grass_block"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_log"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "grass_block"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "dirt"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "grass_block"
+   "target": "oak_leaves"
   },
   {
    "action": "mine",
-   "target": "stone"
+   "target": "oak_leaves"
   },
   {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "stone"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "stone"
+   "action": "kill",
+   "target": "cow"
   }
  ]
 }
 ORACLE_JSON
-echo "oracle: 91 events"
+echo "oracle: 55 events"
