@@ -33,9 +33,8 @@ Write `/workspace/output/solution.json`, actions in chronological order:
 
 ## Vocabulary (closed)
 
-Blocks: `oak_log`, `birch_log`, `spruce_log`, `oak_leaves`, `spruce_leaves`,
-`grass_block`, `dirt`, `stone`, `cobblestone`, `sand`, `gravel`.
-Mobs: `chicken`, `cow`, `pig`, `sheep`.
+Blocks: `oak_log`, `birch_log`, `spruce_log`, `oak_leaves`, `birch_leaves`, `grass_block`, `dirt`, `stone`, `cobblestone`, `diorite`, `granite`, `andesite`, `sand`, `gravel`.
+Mobs: `cow`, `pig`, `sheep`, `chicken`, `rabbit`, `zombie`, `skeleton`, `spider`.
 
 ## Rules
 

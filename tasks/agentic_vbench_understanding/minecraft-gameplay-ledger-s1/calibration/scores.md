@@ -1,20 +1,20 @@
-# Calibration — minecraft-gameplay-ledger-s1 (v4: purposeful pathfinder gameplay)
+# Calibration — minecraft-gameplay-ledger-s1 (v5: diverse purposeful gameplay)
 
-Order-aware LCS-F1 over (action, target) tokens. Oracle 1.0, empty near 0. GT = the
-bot's own mine/kill action order (mineflayer-pathfinder purposeful play: chop trees,
-hunt animals, gather). 55 events, first-person, ~10:22.
+Order-aware LCS-F1 over (action, target) tokens. GT = the bot's mine/kill/place action
+order (mineflayer-pathfinder: chop trees, hunt a variety of mobs, gather, build).
+73 events, **11 distinct tokens** (max token 29%), first-person, 10:26, 720p.
 
 | run | score | notes |
 |---|---|---|
 | oracle | 1.0 | verified |
 | empty | 0.0 | verified |
-| degenerate all-"mine oak_log" | 0.44 | known-answer exploit (needs GT distribution) |
-| correct multiset, shuffled | 0.62 | see LIMITATION |
-| Codex / Antigravity / Claude | _to run_ | |
+| degenerate all-"mine oak_log" | 0.29 | vs 0.44 in the low-diversity v4 |
+| correct multiset, shuffled | 0.45 | vs 0.62 in v4 — diversity made order matter more |
+| Codex / Antigravity / Claude | _to run_ | target <0.10 over 50+ turns |
 
-LIMITATION (verifier strength): a single forest biome yields few, repeated block types
-(oak_log/oak_leaves dominant) + a couple mob kinds, so LCS partly measures the multiset
-rather than strict order. To harden for the <0.10 bar: a multi-biome route (forest ->
-beach -> mountain -> desert) for diverse blocks/ores, more distinct mob types, and
-crafting/placing events. The v4 render nails the REAL first-person gameplay look
-(pathfinder navigation, chopping trees, hunting); diversity-hardening is the next step.
+Ablations (single_frame / no_media / frame_dump) to run; no HUD/minimap in the render.
+
+Diversity levers used: ~8 intended mob types (passive hunts reliable; hostile summons
+sometimes miss) + varied blocks (oak/birch logs+leaves, gravel, stone, diorite) + build.
+Further hardening for a stricter bar: a multi-biome route (sand/ore/cactus) + reliable
+hostile-mob hunts to push distinct tokens up and max-token % down.
