@@ -1,20 +1,20 @@
-# Calibration — minecraft-gameplay-ledger-s1 (v5: diverse purposeful gameplay)
+# Calibration — minecraft-gameplay-ledger-s1 (v6: balanced high-diversity gameplay)
 
 Order-aware LCS-F1 over (action, target) tokens. GT = the bot's mine/kill/place action
-order (mineflayer-pathfinder: chop trees, hunt a variety of mobs, gather, build).
-73 events, **11 distinct tokens** (max token 29%), first-person, 10:26, 720p.
+order (mineflayer-pathfinder: chop trees, gather varied blocks, hunt ~10 mob types, build).
+54 events, **17 distinct tokens (max token 16.7%)**, first-person, 10:09, 720p.
 
 | run | score | notes |
 |---|---|---|
 | oracle | 1.0 | verified |
 | empty | 0.0 | verified |
-| degenerate all-"mine oak_log" | 0.29 | vs 0.44 in the low-diversity v4 |
-| correct multiset, shuffled | 0.45 | vs 0.62 in v4 — diversity made order matter more |
-| Codex / Antigravity / Claude | _to run_ | target <0.10 over 50+ turns |
+| degenerate all-"mine oak_log" | 0.17 | vs 0.44 (v4) / 0.29 (v5) — much less guessable |
+| correct multiset, shuffled | 0.41 | vs 0.62 (v4) / 0.45 (v5) — order matters more |
+| Codex (GPT 5.6) | _to run_ | codex CLI installed; needs OPENAI_API_KEY |
+| Antigravity (Gemini 3.x) | _to run_ | agy access TBD |
+| Claude Code (Fable 5 / Opus 4.8) | _to run_ | installed; can run anytime |
 
-Ablations (single_frame / no_media / frame_dump) to run; no HUD/minimap in the render.
-
-Diversity levers used: ~8 intended mob types (passive hunts reliable; hostile summons
-sometimes miss) + varied blocks (oak/birch logs+leaves, gravel, stone, diorite) + build.
-Further hardening for a stricter bar: a multi-biome route (sand/ore/cactus) + reliable
-hostile-mob hunts to push distinct tokens up and max-token % down.
+10 mob types killed (cow, pig, sheep, chicken, rabbit, mooshroom, wolf, ocelot, fox,
+llama) + 6 block types + build. Ablations (single_frame/no_media/frame_dump) to run; no
+HUD/minimap in the render. Residual: block-mining repetition (6 types) keeps shuffled
+~0.4; further gains would need lower per-block counts / more block types (multi-biome).
