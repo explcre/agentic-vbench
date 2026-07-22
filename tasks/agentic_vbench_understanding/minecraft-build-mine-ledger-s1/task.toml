@@ -1,0 +1,33 @@
+version = "1.0"
+
+[task]
+name = "agentic-vbench/minecraft-build-mine-ledger-s1"
+
+[metadata]
+difficulty = "hard"
+category = "video-understanding"
+tags = ["video-understanding", "game-analysis", "minecraft", "embodied", "event-timeline", "synthetic-ground-truth", "agentic-vbench-understanding"]
+# ~11-min prismarine-viewer render of a scripted bot build/mine session. Ground truth
+# = the bot's own /setblock command log (block type + action + time), base seed s1.
+# Self-hosted rendered mp4 on HF. Distinct from VPT/MineRL inverse-dynamics: this is a
+# long-horizon high-level event-ledger reconstruction, not frame-level action decoding.
+source = "synthetic: Paper 1.16.5 + mineflayer bot_build_full.js (rendered mp4)"
+
+[environment]
+build_timeout_sec = 2400.0
+cpus = 4
+memory_mb = 8192
+storage_mb = 8192
+allow_internet = false
+
+[environment.env]
+HF_TOKEN = "${HF_TOKEN:-}"
+
+[[steps]]
+name = "solve"
+
+[steps.agent]
+timeout_sec = 3600.0
+
+[steps.verifier]
+timeout_sec = 600.0
