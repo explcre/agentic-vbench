@@ -1,0 +1,31 @@
+version = "1.0"
+
+[task]
+name = "agentic-vbench/music-transcription-ledger-s7"
+
+[metadata]
+difficulty = "hard"
+category = "video-understanding"
+tags = ["video-understanding", "audio-visual", "music-transcription", "event-timeline", "synthetic-ground-truth", "agentic-vbench-understanding"]
+# ~10-min audio-visual piano-roll. GT = the source MIDI's note events (pitch+onset),
+# seed 7. Audio-visual by design: exact pitch from audio, onset/polyphony from video.
+source = "synthetic: tools/d1_music/gen_music.py --seed 7 (rendered mp4 with audio)"
+
+[environment]
+build_timeout_sec = 2400.0
+cpus = 4
+memory_mb = 8192
+storage_mb = 8192
+allow_internet = false
+
+[environment.env]
+HF_TOKEN = "${HF_TOKEN:-}"
+
+[[steps]]
+name = "solve"
+
+[steps.agent]
+timeout_sec = 3600.0
+
+[steps.verifier]
+timeout_sec = 600.0
