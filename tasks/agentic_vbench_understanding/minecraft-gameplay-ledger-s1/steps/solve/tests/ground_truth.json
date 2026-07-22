@@ -1,0 +1,369 @@
+{
+ "n_events": 91,
+ "events": [
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "birch_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "birch_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "oak_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "birch_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "birch_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "oak_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "oak_log"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "oak_leaves"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "kill",
+   "target": "pig"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "grass_block"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  },
+  {
+   "action": "mine",
+   "target": "dirt"
+  },
+  {
+   "action": "mine",
+   "target": "stone"
+  }
+ ]
+}
