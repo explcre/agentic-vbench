@@ -19,6 +19,14 @@ player's actions (mineflayer events). The task stays hard and shortcut free: ~90
 over ~10 minutes in first person, block/mob identity read from the rendered textures, no
 HUD — a single frame or a still cannot recover the ordered action sequence.
 
+A second, weighted component scores COMBAT STYLE: for the kill events only, the ordered
+sequence of the weapon used (`sword` for a melee kill — the player is adjacent and swings
+— vs `bow` for a ranged kill, where arrows fly and the mob dies at a distance). This is
+read from the video the same way a human would: engagement distance, flying arrows, and
+the highlighted hotbar slot.
+
+    reward = 0.85 * LCS-F1(action, target)  +  0.15 * LCS-F1(kill weapons)
+
 Ground truth (ordered tokens) is baked verifier-side at /tests/ground_truth.json.
 """
 import argparse, json, re
@@ -34,6 +42,21 @@ def act_norm(a):
     return a
 
 def token(ev): return (act_norm(ev.get("action") or ev.get("event")), norm(ev.get("target") or ev.get("block")))
+
+def weapon_norm(w):
+    w = norm(w)
+    if "bow" in w or "arrow" in w or "ranged" in w: return "bow"
+    if "sword" in w or "melee" in w or "blade" in w: return "sword"
+    return w
+
+def weapon_seq(evs):
+    """Ordered weapon tokens for the kill events (combat-style component)."""
+    out = []
+    for e in evs:
+        if not isinstance(e, dict): continue
+        if act_norm(e.get("action") or e.get("event")) != "kill": continue
+        out.append(weapon_norm(e.get("tool") or e.get("weapon") or ""))
+    return out
 
 def lcs_len(a, b):
     n, m = len(a), len(b)
@@ -52,20 +75,27 @@ def main():
     ap.add_argument("--reward-json", required=True, type=Path)
     ap.add_argument("--reward-txt", required=True, type=Path)
     a = ap.parse_args()
-    gt = [token(e) for e in json.loads(GT_PATH.read_text())["events"]]
-    reason = "ok"; preds = []
+    gt_raw = json.loads(GT_PATH.read_text())["events"]
+    gt = [token(e) for e in gt_raw]; gt_w = weapon_seq(gt_raw)
+    reason = "ok"; preds = []; pred_w = []
     try:
         raw = json.loads(a.solution.read_text()).get("events", [])
         if not isinstance(raw, list): raise ValueError("events not a list")
         preds = [token(e) for e in raw if isinstance(e, dict)]
+        pred_w = weapon_seq(raw)
     except Exception as exc:  # noqa: BLE001
         reason = f"unreadable solution.json: {exc}"
     lcs = lcs_len(preds, gt); np_, ng = len(preds), len(gt)
     f1 = (2*lcs/(np_+ng)) if (np_+ng) else 0.0
+    wl = lcs_len(pred_w, gt_w); nw_p, nw_g = len(pred_w), len(gt_w)
+    f1w = (2*wl/(nw_p+nw_g)) if (nw_p+nw_g) else 0.0
+    reward = 0.85*f1 + 0.15*f1w
     det = {"reason": reason, "n_ground_truth": ng, "n_predicted": np_, "lcs": lcs,
-           "f1": round(f1,4), "note": "order-aware LCS F1 over (action,target) tokens"}
+           "ledger_f1": round(f1,4), "n_gt_kills": nw_g, "n_pred_kills": nw_p,
+           "weapon_lcs": wl, "weapon_f1": round(f1w,4),
+           "note": "reward = 0.85*LCS-F1(action,target) + 0.15*LCS-F1(kill weapons)"}
     a.reward_json.parent.mkdir(parents=True, exist_ok=True)
-    a.reward_json.write_text(json.dumps({"reward": round(f1,4), "details": det}, indent=2))
-    a.reward_txt.write_text(f"{round(f1,4)}\n")
+    a.reward_json.write_text(json.dumps({"reward": round(reward,4), "details": det}, indent=2))
+    a.reward_txt.write_text(f"{round(reward,4)}\n")
 
 if __name__ == "__main__": main()
