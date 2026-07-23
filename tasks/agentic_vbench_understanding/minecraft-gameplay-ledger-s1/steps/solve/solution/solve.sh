@@ -5,40 +5,20 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
 {
  "events": [
   {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
    "action": "kill",
    "target": "cow"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
+   "target": "spruce_leaves"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
+   "target": "spruce_leaves"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "oak_leaves"
+   "target": "spruce_leaves"
   },
   {
    "action": "kill",
@@ -53,24 +33,8 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
    "target": "grass_block"
   },
   {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
    "action": "kill",
    "target": "sheep"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
   },
   {
    "action": "kill",
@@ -78,59 +42,11 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
   },
   {
    "action": "mine",
-   "target": "oak_log"
+   "target": "spruce_log"
   },
   {
    "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "rabbit"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "mooshroom"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "wolf"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "ocelot"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
+   "target": "spruce_log"
   },
   {
    "action": "kill",
@@ -138,11 +54,15 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
   },
   {
    "action": "mine",
-   "target": "oak_log"
+   "target": "red_sand"
   },
   {
    "action": "mine",
-   "target": "oak_log"
+   "target": "red_sand"
+  },
+  {
+   "action": "mine",
+   "target": "red_sand"
   },
   {
    "action": "kill",
@@ -150,27 +70,27 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
   },
   {
    "action": "mine",
-   "target": "gravel"
+   "target": "orange_terracotta"
   },
   {
    "action": "mine",
-   "target": "gravel"
+   "target": "orange_terracotta"
   },
   {
    "action": "mine",
-   "target": "gravel"
+   "target": "orange_terracotta"
   },
   {
    "action": "mine",
-   "target": "andesite"
+   "target": "red_sand"
   },
   {
    "action": "mine",
-   "target": "andesite"
+   "target": "red_sand"
   },
   {
-   "action": "mine",
-   "target": "andesite"
+   "action": "kill",
+   "target": "mooshroom"
   },
   {
    "action": "place",
@@ -535,4 +455,4 @@ cat > /workspace/output/solution.json <<'ORACLE_JSON'
  ]
 }
 ORACLE_JSON
-echo "oracle: 132 events"
+echo "oracle: 112 events"

@@ -1,41 +1,21 @@
 {
- "n_events": 132,
+ "n_events": 112,
  "events": [
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
   {
    "action": "kill",
    "target": "cow"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
+   "target": "spruce_leaves"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
+   "target": "spruce_leaves"
   },
   {
    "action": "mine",
-   "target": "oak_leaves"
-  },
-  {
-   "action": "mine",
-   "target": "oak_leaves"
+   "target": "spruce_leaves"
   },
   {
    "action": "kill",
@@ -50,24 +30,8 @@
    "target": "grass_block"
   },
   {
-   "action": "mine",
-   "target": "grass_block"
-  },
-  {
    "action": "kill",
    "target": "sheep"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
-  },
-  {
-   "action": "mine",
-   "target": "dirt"
   },
   {
    "action": "kill",
@@ -75,59 +39,11 @@
   },
   {
    "action": "mine",
-   "target": "oak_log"
+   "target": "spruce_log"
   },
   {
    "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "rabbit"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "mooshroom"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "wolf"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "kill",
-   "target": "ocelot"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
-  },
-  {
-   "action": "mine",
-   "target": "oak_log"
+   "target": "spruce_log"
   },
   {
    "action": "kill",
@@ -135,11 +51,15 @@
   },
   {
    "action": "mine",
-   "target": "oak_log"
+   "target": "red_sand"
   },
   {
    "action": "mine",
-   "target": "oak_log"
+   "target": "red_sand"
+  },
+  {
+   "action": "mine",
+   "target": "red_sand"
   },
   {
    "action": "kill",
@@ -147,27 +67,27 @@
   },
   {
    "action": "mine",
-   "target": "gravel"
+   "target": "orange_terracotta"
   },
   {
    "action": "mine",
-   "target": "gravel"
+   "target": "orange_terracotta"
   },
   {
    "action": "mine",
-   "target": "gravel"
+   "target": "orange_terracotta"
   },
   {
    "action": "mine",
-   "target": "andesite"
+   "target": "red_sand"
   },
   {
    "action": "mine",
-   "target": "andesite"
+   "target": "red_sand"
   },
   {
-   "action": "mine",
-   "target": "andesite"
+   "action": "kill",
+   "target": "mooshroom"
   },
   {
    "action": "place",

@@ -1,7 +1,7 @@
 # Minecraft First-Person Gameplay Ledger Reconstruction
 
 You are given one video at `/workspace/materials/game.mp4`: a ~10-minute **first-person**
-recording of a player in a Minecraft world. The player explores and mines many block
+recording of a player traveling across several Minecraft biomes (forest, desert, snowy mountains, badlands). The player explores and mines many block
 types (including ores), hunts a variety of animals, and **builds a small house**
 block-by-block; the world transitions from day to night.
 
@@ -36,9 +36,11 @@ Write `/workspace/output/solution.json`, actions in chronological order:
 ## Vocabulary (closed)
 
 Blocks (mine/place): `oak_log`, `birch_log`, `spruce_log`, `oak_leaves`, `birch_leaves`,
-`grass_block`, `dirt`, `gravel`, `stone`, `cobblestone`, `andesite`, `diorite`, `granite`,
-`sand`, `coal_ore`, `iron_ore`, `gold_ore`, `redstone_ore`, `diamond_ore`, `lapis_ore`,
-`emerald_ore`, `oak_planks`, `spruce_planks`, `glass`, `oak_door`, `torch`.
+`spruce_leaves`, `grass_block`, `dirt`, `gravel`, `stone`, `cobblestone`, `sand`,
+`sandstone`, `cactus`, `dead_bush`, `snow_block`, `ice`, `packed_ice`, `red_sand`,
+`red_sandstone`, `terracotta`, `orange_terracotta`, `coal_ore`, `iron_ore`, `gold_ore`,
+`redstone_ore`, `diamond_ore`, `lapis_ore`, `emerald_ore`, `oak_planks`, `spruce_planks`,
+`glass`, `oak_door`, `torch`.
 Mobs (kill): `cow`, `pig`, `sheep`, `chicken`, `rabbit`, `mooshroom`, `wolf`, `ocelot`,
 `fox`, `llama`, `zombie`, `skeleton`, `spider`, `creeper`.
 
