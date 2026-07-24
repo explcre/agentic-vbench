@@ -157,21 +157,27 @@ bot.once('spawn', async () => {
 
   async function orbitAndShow(centre, radius=7, stops=6, half=3) {
     let shown = 0;
-    for (let k = 0; k < stops * 2 && shown < stops; k++) {
-      const a = (k / (stops * 2)) * Math.PI * 2;
-      const x = Math.floor(centre.x + Math.cos(a) * radius);
-      const z = Math.floor(centre.z + Math.sin(a) * radius);
-      const su = surfaceOf(x, z);
-      if (!su || !DRY.has(su.name)) continue;
-      // Teleport to each vantage, then EASE the look. Walking between stops was tried and reverted:
-      // pathfinding around a finished structure thrashes ("goal changed" repeatedly), which left the
-      // bot mispositioned and dropped a reliable 6/6 house orbit to 1/6. A position cut between stops
-      // is a minor cost; a broken visibility check is not. The camera turn itself stays smooth.
-      bot.chat(`/tp Builder ${x + 0.5} ${su.position.y + 1} ${z + 0.5}`);
-      await sleep(900);
-      await smoothLookAt(centre, 0.5, 5);
-      if (!structureVisible(centre, half)) { log('orbit-blocked at ' + [x, z]); continue; }
-      await sleep(1100); shown++;
+    // Sweep many angles, and at each angle try progressively CLOSER radii. A single fixed radius put
+    // some stops outside the cleared build site, on adjacent trees or a hillside, so a finished house
+    // showed only 2 of 6 stops on rough terrain. Pulling in toward the structure (down to half+2.5)
+    // keeps the vantage on the flat ground the site guarantees, and the extra angles give more
+    // chances to find a clear one. A stop still needs dry ground AND the structure in clear sight.
+    const N = stops * 3;
+    for (let k = 0; k < N && shown < stops; k++) {
+      const a = (k / N) * Math.PI * 2;
+      let placed = false;
+      for (const r of [radius, half + 4, half + 2.5]) {
+        const x = Math.floor(centre.x + Math.cos(a) * r);
+        const z = Math.floor(centre.z + Math.sin(a) * r);
+        const su = surfaceOf(x, z);
+        if (!su || !DRY.has(su.name)) continue;
+        if (Math.abs(su.position.y + 1 - centre.y) > 4) continue;   // not up a cliff
+        bot.chat(`/tp Builder ${x + 0.5} ${su.position.y + 1} ${z + 0.5}`);
+        await sleep(850);
+        await smoothLookAt(centre, 0.5, 5);
+        if (structureVisible(centre, half)) { await sleep(1100); shown++; placed = true; break; }
+      }
+      if (!placed) log('orbit-blocked at angle ' + (a * 180 / Math.PI).toFixed(0));
     }
     log('ORBIT_SHOWN ' + shown + '/' + stops);
   }
