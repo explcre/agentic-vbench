@@ -38,16 +38,17 @@ scorer:
 difficulty: {strong_agent_reward: TBD, tool_call_turns: TBD, agent_model: TBD}
 
 anti_shortcut:
-  single_frame: TBD
-  no_media: TBD    # this session's action sequence is not knowable blind
-  frame_dump_no_tools: TBD
+  most_common_token_xN: 0.069   # the single commonest (action, target), repeated
+  actions_right_targets_stone: 0.024
+  correct_multiset_shuffled: 0.231   # order sensitivity, not a shortcut — see Known limitations
+  empty: 0.0
 
 input:
-  url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game.mp4
-  sha256: 3a13a316c8102189a57290d748629a2a9ba5c3bc9754100fc3648092cf330e52
-  length_min: 14.0
+  url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game_v30.mp4
+  sha256: 6096f2448205fb08fec8542fbead652f51e6f069248997459d9b945d9fde7c00
+  length_min: 19.1
   resolution: 720
-  contents: 237 events (86 mine, 132 place, 19 kill); 44 distinct block/mob types;
+  contents: 248 events (83 mine, 147 place, 18 kill); 44 distinct block/mob types;
             biomes forest, beach, desert, snowy tundra, jungle, plains, savanna, badlands;
             3 structures built on camera (cabin, well, watchtower); a staircase mine.
 ```
@@ -98,7 +99,26 @@ into the ground truth.
 ## Known limitations
 
 - Order-aware scoring still leaves part of the reward recoverable from the target multiset
-  alone; the shuffled-ledger ablation at 0.34 quantifies that ceiling.
-- ~5–6% of frames are dominated by a single colour (distant vistas and sky), measured with
-  `tools/p1_minecraft/frame_audit.py`. Run-to-run variation on that metric is ±1–2 points and
-  is driven by spawn terrain, so it is reported rather than optimised against.
+  alone; the shuffled-ledger ablation at **0.231** quantifies that ceiling. This is reported as a
+  property, not a shortcut: reproducing the exact multiset of 248 events requires watching the whole
+  video, so it is most of the work rather than a way around it. The genuine shortcuts —
+  most-common-token (0.069) and actions-right-targets-wrong (0.024) — are both well under 0.15.
+- **Weapon credit is gated on ledger alignment.** Scoring the kill-weapon sequence independently was
+  nearly free, because there are only two weapon classes: a submission that named every block
+  "stone" scored ledger 0.028 and weapon 1.000, reaching reward 0.174. Weapon credit is now granted
+  only on kills inside the ledger's LCS alignment, which drops that ablation to 0.024 and leaves the
+  oracle at exactly 1.0.
+- **The closed vocabulary is asserted against the ledger at build time.** The staircase mine records
+  the real blocks it digs, so the vocabulary must cover the terrain of every biome on the route, not
+  just the gather categories. `build_p1_gt_v11.py` refuses to emit a task whose ground truth contains
+  an unlisted target — it caught `brown_terracotta` in badlands on a real session.
+- 2.4% of frames are dominated by a single colour (distant vistas and sky), measured with
+  `tools/p1_minecraft/frame_audit.py`; mean dominant-colour share is 0.242. Run-to-run variation on
+  that metric is ±1–2 points and is driven by spawn terrain, so it is reported rather than optimised
+  against.
+- **Every structure is verified visible from the camera.** The generator raycasts to each finished
+  build and checks the first block hit belongs to it, logging `ORBIT_SHOWN n/m`: v30 records 6/6 for
+  the cabin, 5/5 for the watchtower and 5/5 for the well. Placements the camera missed are not
+  silently written into the world — they are deferred and placed for real on camera in a second pass
+  (v30: 49 recovered, 0 residual), so nothing exists in the finished build that is absent from the
+  ledger.

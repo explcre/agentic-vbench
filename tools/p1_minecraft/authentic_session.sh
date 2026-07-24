@@ -66,6 +66,15 @@ Xvfb :$D -screen 0 1280x720x24 -nolisten tcp & XVFB=$!
 sleep 3
 
 rm -f "$SRV"/world*/session.lock
+# Drop the Camera's saved playerdata. /setworldspawn only places players who have none, so a stale
+# .dat from an earlier run kept respawning the camera at its last position -- which was inside stone,
+# giving a uniform grey view that is indistinguishable from a loading screen.
+CAM_UUID=$(/usr/bin/python3 -c "
+import hashlib, uuid
+h = bytearray(hashlib.md5(b'OfflinePlayer:Camera').digest()); h[6] = (h[6] & 0x0F) | 0x30; h[8] = (h[8] & 0x3F) | 0x80
+print(uuid.UUID(bytes=bytes(h)))")
+rm -f "$SRV"/world*/playerdata/${CAM_UUID}.dat "$SRV"/world*/playerdata/${CAM_UUID}.dat_old
+echo "cleared Camera playerdata ($CAM_UUID)"
 (cd "$SRV" && "$J" -Xmx3G -jar paper.jar nogui > "$OUT/server.log" 2>&1) & SRVPID=$!
 for i in $(seq 1 90); do grep -q 'Done (' "$OUT/server.log" && break; sleep 2; done
 (exec 3<>/dev/tcp/127.0.0.1/$PORT) 2>/dev/null || { echo "SERVER_NOT_LISTENING"; kill $SRVPID $XVFB; exit 4; }
@@ -79,8 +88,19 @@ for i in $(seq 1 40); do grep -qi 'Builder joined' "$OUT/server.log" && break; s
 grep -qi 'Builder joined' "$OUT/server.log" || { echo "BOT_NEVER_JOINED"; tail -5 "$OUT/bot.log"; kill $BOT $SRVPID $XVFB; exit 5; }
 echo BOT_JOINED
 
-# Prepare the world BEFORE the client connects: no command echo (the leak), daylight, and a world
-# spawn on the bot's own open dry ground so the Camera cannot join inside stone and suffocate.
+# Prepare the world BEFORE the client connects: no command echo (that was the answer leak), daylight,
+# and a world spawn ON THE BOT so the camera joins next to the action.
+#
+# The world spawn is aimed with `/execute at Builder run setworldspawn ~ ~1 ~` rather than by reading
+# the Builder entity from the Director bot. The bot travels hundreds of blocks to reach a biome, so it
+# sits outside the Director's entity-tracking range and `players.Builder.entity` is undefined -- which
+# silently fell back to the Director's own spot and left the world spawn ~330 blocks away. The camera
+# then logged in there, and /spectate teleported it into chunks the client had never downloaded, so it
+# rendered dark empty space (brightness 24, 6 distinct colours) even though the server reported
+# daytime and a clean /spectate. Server-side relative coordinates avoid entity tracking entirely.
+#
+# Keep the embedded JS free of prose: it lives inside a single-quoted shell string, so one apostrophe
+# in a comment ("the Director's spot") silently ends the string and node dies on a syntax error.
 node -e '
 const mineflayer=require("mineflayer");
 const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
@@ -89,9 +109,8 @@ b.once("spawn",async()=>{const s=ms=>new Promise(r=>setTimeout(r,ms));
   b.chat("/gamerule logAdminCommands false");    await s(400);
   b.chat("/gamerule doDaylightCycle false");     await s(300);
   b.chat("/time set day"); await s(300); b.chat("/weather clear"); await s(300);
-  const p=b.entity.position.floored();
-  b.chat(`/setworldspawn ${p.x} ${p.y+1} ${p.z}`); await s(400);
-  console.log("WORLD_PREPARED "+[p.x,p.y+1,p.z]); process.exit(0);});
+  b.chat("/execute at Builder run setworldspawn ~ ~1 ~"); await s(700);
+  console.log("WORLD_PREPARED at-Builder"); process.exit(0);});
 b.on("error",e=>{console.log("DIRECTOR_ERR",e.message);process.exit(1);});' >> "$OUT/director.log" 2>&1 || true
 grep -q WORLD_PREPARED "$OUT/director.log" || { echo "PREFLIGHT_FAIL world not prepared"; kill $BOT $SRVPID $XVFB; exit 7; }
 tail -1 "$OUT/director.log"
@@ -124,6 +143,10 @@ const mineflayer=require("mineflayer");
 const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
 const s=ms=>new Promise(r=>setTimeout(r,ms));
 b.once("spawn",async()=>{ b.chat("/gamemode spectator Camera"); await s(600);
+  // Teleport first, THEN attach. /spectate relies on the client already having the target entity
+  // loaded; a plain /tp makes the server stream the chunks around the bot, so by the time the camera
+  // attaches it has a world to look at rather than dark empty space.
+  b.chat("/tp Camera Builder"); await s(900);
   b.chat("/spectate Builder Camera"); await s(900); process.exit(0);});
 b.on("error",()=>process.exit(1));' >> "$OUT/spectate.log" 2>&1 || true
 }
@@ -156,9 +179,17 @@ for i in $(seq 1 40); do
   fi
   [ $((i % 5)) = 0 ] && echo "  waiting for the world ($((i*6))s): $STATE"
 done
-[ "$WORLD_READY" = "1" ] || { echo "WORLD_NEVER_RENDERED — last state: $STATE"
-  grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
-  kill $CLIENT $BOT $SRVPID $XVFB; exit 10; }
+# `flat` means in-world but a dull view (fog, or the camera briefly inside terrain) -- that is not a
+# broken client, and gating on it deadlocks: the interesting view only exists after GO, which comes
+# after this check. Only a `ui` screen (menu, death) is fatal.
+if [ "$WORLD_READY" != "1" ]; then
+  case "$STATE" in
+    ui*) echo "WORLD_NEVER_RENDERED — client is on a UI screen: $STATE"
+         grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
+         kill $CLIENT $BOT $SRVPID $XVFB; exit 10 ;;
+    *)   echo "WARN proceeding on a dull-but-live view: $STATE" ;;
+  esac
+fi
 
 DISPLAY=:$D "$FF" -v error -f x11grab -framerate 15 -video_size 1280x720 -i :$D \
   -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p "$OUT/authentic.mp4" -y & CAP=$!

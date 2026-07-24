@@ -70,6 +70,12 @@ bot.once('spawn', async () => {
   // The authentic path renders in a real client, so the JS viewer is skipped there.
   if (USE_VIEWER) mineflayerViewer(bot, { port:3007, firstPerson:true, viewDistance:8 });
   bot.chat('/gamemode creative Builder');
+  // Surface immediately, before waiting for GO. On the authentic path a real client joins and
+  // spectates this bot while it is still parked at its spawn point; if that spawn is underground the
+  // camera stares at solid rock, and any "is the world rendering?" check cannot tell that apart from
+  // a loading screen. Landing dry up front makes the first frame a real view.
+  setTimeout(async () => { try { await landDry(bot.entity.position.x, bot.entity.position.z); }
+                           catch (_) {} }, 2500);
   bot.chat('/gamerule doDaylightCycle false'); bot.chat('/time set day'); bot.chat('/weather clear');
   bot.chat('/gamerule mobGriefing false'); bot.chat('/gamerule doMobSpawning false'); bot.chat('/gamerule doTileDrops false');
   for (const it of ['diamond_pickaxe','diamond_axe','diamond_shovel','diamond_sword','bow','arrow 64'])
@@ -614,7 +620,7 @@ bot.once('spawn', async () => {
     await P(X+1, Y+1, Z+1, 'torch');
     log('WELL_DONE');
     await finishDeferred();
-    await orbitAndShow(new Vec3(X + 1, Y + 1, Z + 1), 6, 5, 2);       // 5x5 farm
+    await orbitAndShow(new Vec3(X + 1, Y + 1, Z + 1), 6, 5, 2);       // 3x3 well
   }
   // Ride a boat across the water for a few seconds. prismarine-viewer DOES render boats and
   // riders, so this adds real, natural first-person variety. Produces no ledger events (it is

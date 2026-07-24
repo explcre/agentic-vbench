@@ -16,18 +16,20 @@ rejected first:
     frame, world frames included (1132x573 on a HUD'd render, and one on a bare render too), so
     `buttons > 0` rejects everything.
 
-What does separate them, measured on four frames:
+What does separate them, measured on every frame that has come up so far:
 
-  | frame                 | dominant | quantised colours | menu-button-shaped slabs |
-  |-----------------------|----------|-------------------|--------------------------|
-  | death screen          | 0.35     | 21                | 1 (594x54)               |
-  | loading terrain       | 0.66     | 12                | 0                        |
-  | world, bare render    | 0.13     | 161               | 0                        |
-  | world, HUD composited | 0.25     | 226               | 0                        |
+  | frame                          | dominant | quantised colours | menu-button-shaped slabs |
+  |--------------------------------|----------|-------------------|--------------------------|
+  | death screen                   | 0.35     | 21                | 1 (594x54)               |
+  | loading terrain                | 0.66     | 12                | 0                        |
+  | camera in undownloaded chunks  | 0.60     | 6                 | 0                        |
+  | world, bare render (open)      | 0.13     | 161               | 0                        |
+  | world, HUD composited          | 0.25     | 226               | 0                        |
+  | world, real client mid-forest  | 0.19     | 52                | 0                        |
 
 So: a *stock menu button* is ~600x40 at GUI scale 3 and nothing in a world view has that shape,
-while flat screens collapse into very few quantised colours. Colour count separates world from flat
-by an 8x margin (161 against 21/12), which is why the threshold sits far from both.
+while flat screens collapse into very few quantised colours and one dominant colour. Both clusters
+are well separated on both axes, so the thresholds sit between them rather than next to either.
 """
 import re
 import subprocess
@@ -37,8 +39,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-DOMINANT_MAX = 0.50    # a live world is never half one colour
-COLOURS_MIN = 60       # quantised (//32); worlds measure 161-226, flat screens 12-21
+# Thresholds sit between the two observed clusters with margin on BOTH sides. COLOURS_MIN was first
+# set to 60 from a two-frame sample (161 and 226) and promptly misjudged a legitimate close-range
+# forest view at 45-52 colours as flat -- an over-tight threshold from too few samples.
+#   world frames measured: dominant 0.13 0.16 0.19 0.20 0.25   colours 45 52 87 161 226
+#   flat  frames measured: dominant 0.60 0.66                  colours 6 12
+DOMINANT_MAX = 0.40
+COLOURS_MIN = 30
 BUTTON_W = (555, 625)  # a stock menu button is 200 px * GUI scale 3
 BUTTON_H = (26, 74)
 
