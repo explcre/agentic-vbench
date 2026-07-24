@@ -13,6 +13,14 @@
 #   * JDK 21 from $HOME — 1.20 needs Java 17+, this host only has 8 and 11.
 #   * NO_VIEWER=1 — the bot's own prismarine-viewer is pointless here and just burns CPU.
 #   * the port is checked before launch, because a stale server silently ate an earlier run.
+#   * the Camera is NEVER op'd and chat is hidden. Paper broadcasts "Builder issued server command:
+#     /setblock ... minecraft:oak_planks" to every op, so an op'd camera prints the exact ground
+#     truth on screen -- a total answer leak in the graded footage.
+#   * the Camera is put in spectator the instant it joins, and the world spawn is forced to open
+#     ground. It previously spent ~4 s in survival inside solid stone at the default spawn,
+#     suffocated, and the whole recording was the death screen; `/spectate` then failed with
+#     "Attempt to teleport removed player Camera restricted" because a dead player cannot be
+#     teleported. The old script printed SPECTATE_LOCKED unconditionally and never noticed.
 #   * ops.json is written BEFORE the server starts. A fresh Paper server has `ops: []`, and an
 #     unprivileged player gets *"Unknown command"* for /setblock, /summon and /locate -- Brigadier
 #     hides commands you may not run. That looks exactly like a version incompatibility and cost a
@@ -31,8 +39,19 @@ FF=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.g
 [ -s "$MC/bin/client.jar" ] || { echo "PREFLIGHT_FAIL no 1.20.4 client"; exit 3; }
 [ -x "$J" ]                 || { echo "PREFLIGHT_FAIL no JDK 21";       exit 3; }
 grep -q onboardAccessibility "$MC/options.txt" || { echo "PREFLIGHT_FAIL options.txt missing the onboarding opt-out"; exit 3; }
-/usr/bin/python3 "$TOOLS/make_ops.py" "$SRV" Builder Camera Director
+/usr/bin/python3 "$TOOLS/make_ops.py" "$SRV" Builder Director   # NOT Camera -- op leaks command echo
 grep -q '"name": "Builder"' "$SRV/ops.json" || { echo "PREFLIGHT_FAIL Builder not op'd"; exit 3; }
+grep -q '"name": "Camera"'  "$SRV/ops.json" && { echo "PREFLIGHT_FAIL Camera must NOT be op (chat leak)"; exit 3; }
+# hide chat in the client too, belt and braces against any broadcast we did not anticipate
+/usr/bin/python3 - "$MC/options.txt" <<'EOP'
+import re, sys
+p = sys.argv[1]; t = open(p).read()
+t = re.sub(r'^chatVisibility:\d+$', 'chatVisibility:2', t, flags=re.M)   # 2 = hidden
+if 'chatVisibility' not in t: t += 'chatVisibility:2\n'
+open(p, 'w').write(t)
+print('options.txt chatVisibility ->', re.search(r'chatVisibility:\d+', t).group(0))
+EOP
+grep -q '^chatVisibility:2$' "$MC/options.txt" || { echo "PREFLIGHT_FAIL chat not hidden"; exit 3; }
 
 # Kill ONLY a stale server for THIS world. Both the 1.16.5 and 1.20.4 servers have the identical
 # command line (`java -jar paper.jar nogui`), so match on the process's cwd -- a blanket
@@ -60,6 +79,48 @@ for i in $(seq 1 40); do grep -qi 'Builder joined' "$OUT/server.log" && break; s
 grep -qi 'Builder joined' "$OUT/server.log" || { echo "BOT_NEVER_JOINED"; tail -5 "$OUT/bot.log"; kill $BOT $SRVPID $XVFB; exit 5; }
 echo BOT_JOINED
 
+# Prepare the world BEFORE the client connects: no command echo (the leak), daylight, and a world
+# spawn on the bot's own open dry ground so the Camera cannot join inside stone and suffocate.
+node -e '
+const mineflayer=require("mineflayer");
+const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
+b.once("spawn",async()=>{const s=ms=>new Promise(r=>setTimeout(r,ms));
+  b.chat("/gamerule sendCommandFeedback false"); await s(400);
+  b.chat("/gamerule logAdminCommands false");    await s(400);
+  b.chat("/gamerule doDaylightCycle false");     await s(300);
+  b.chat("/time set day"); await s(300); b.chat("/weather clear"); await s(300);
+  const p=b.entity.position.floored();
+  b.chat(`/setworldspawn ${p.x} ${p.y+1} ${p.z}`); await s(400);
+  console.log("WORLD_PREPARED "+[p.x,p.y+1,p.z]); process.exit(0);});
+b.on("error",e=>{console.log("DIRECTOR_ERR",e.message);process.exit(1);});' >> "$OUT/director.log" 2>&1 || true
+grep -q WORLD_PREPARED "$OUT/director.log" || { echo "PREFLIGHT_FAIL world not prepared"; kill $BOT $SRVPID $XVFB; exit 7; }
+tail -1 "$OUT/director.log"
+
+# A watcher that is ALREADY CONNECTED when the client joins, so the Camera is made a spectator
+# within a tick instead of after a log-poll round trip. It re-issues /spectate until the server
+# confirms, and prints SPECTATE_OK only on the confirmation — the previous version printed
+# SPECTATE_LOCKED unconditionally and hid a dead camera for a whole session.
+node -e '
+const mineflayer=require("mineflayer");
+const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
+const s=ms=>new Promise(r=>setTimeout(r,ms));
+b.once("spawn",async()=>{
+  for (let i=0;i<150;i++){
+    const cam=b.players["Camera"];
+    if (cam && cam.entity !== undefined || cam) {
+      b.chat("/gamemode spectator Camera"); await s(500);
+      b.chat("/spectate Builder Camera");   await s(900);
+      // confirm from the entity list: a spectating camera rides the bot, so its position tracks it
+      const me=b.players["Builder"] && b.players["Builder"].entity;
+      const cm=b.players["Camera"] && b.players["Camera"].entity;
+      if (me && cm && me.position.distanceTo(cm.position) < 3) { console.log("SPECTATE_OK"); process.exit(0); }
+      if (i>6 && i%4===0) console.log("spectate-retry "+i);
+    }
+    await s(1000);
+  }
+  console.log("SPECTATE_FAILED"); process.exit(9);});
+b.on("error",e=>{console.log("WATCHER_ERR",e.message);process.exit(1);});' >> "$OUT/spectate.log" 2>&1 & WATCH=$!
+
 CP=$(cat "$MC/classpath.txt"); AIDX=$(cut -d= -f2 "$MC/asset_index.txt")
 DISPLAY=:$D LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVERRIDE=3.3 \
   "$J" -Xmx3G -cp "$CP" -Djava.library.path="$MC/natives" net.minecraft.client.main.Main \
@@ -67,23 +128,24 @@ DISPLAY=:$D LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVER
   --uuid 00000000000000000000000000000001 --accessToken 0 --userType legacy \
   --width 1280 --height 720 --quickPlayMultiplayer 127.0.0.1:$PORT > "$OUT/client.log" 2>&1 & CLIENT=$!
 for i in $(seq 1 75); do grep -qi 'Camera joined' "$OUT/server.log" && break; sleep 4; done
-grep -qi 'Camera joined' "$OUT/server.log" || { echo "CLIENT_NEVER_JOINED"; tail -10 "$OUT/client.log"; kill $CLIENT $BOT $SRVPID $XVFB; exit 6; }
+grep -qi 'Camera joined' "$OUT/server.log" || { echo "CLIENT_NEVER_JOINED"; tail -10 "$OUT/client.log"; kill $CLIENT $BOT $SRVPID $XVFB $WATCH; exit 6; }
 echo CLIENT_JOINED
 
-# lock the camera to the bot, server-side (no client input at all)
-node -e '
-const mineflayer=require("mineflayer");
-const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
-b.once("spawn",async()=>{const s=ms=>new Promise(r=>setTimeout(r,ms));
-  b.chat("/op Camera"); await s(700);
-  b.chat("/time set day"); await s(400); b.chat("/weather clear"); await s(400);
-  b.chat("/gamemode spectator Camera"); await s(700);
-  b.chat("/spectate Builder Camera"); await s(700);
-  console.log("SPECTATE_LOCKED"); process.exit(0);});
-b.on("error",e=>{console.log("DIRECTOR_ERR",e.message);process.exit(1);});' >> "$OUT/director.log" 2>&1 || true
-tail -1 "$OUT/director.log"
+wait $WATCH || true
+grep -q SPECTATE_OK "$OUT/spectate.log" || { echo "SPECTATE_FAILED"; tail -4 "$OUT/spectate.log"
+  grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
+  kill $CLIENT $BOT $SRVPID $XVFB; exit 8; }
+echo SPECTATE_OK
 
 sleep 25                                   # let chunks mesh before recording
+# The camera must be looking at the world, not at a menu or death screen. bands.py counts UI button
+# slabs; a in-world view has none, a death/pause screen has two or three.
+DISPLAY=:$D "$FF" -v error -f x11grab -video_size 1280x720 -i :$D -frames:v 1 "$OUT/precheck.png" -y
+BTN=$(/usr/bin/python3 "$TOOLS/bands.py" "$OUT/precheck.png" | grep -oE 'buttons=[0-9]+' | cut -d= -f2)
+echo "PRECHECK buttons=$BTN"
+[ "${BTN:-9}" = "0" ] || { echo "PRECHECK_FAIL the client is showing a UI screen, not the world"
+  grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
+  kill $CLIENT $BOT $SRVPID $XVFB; exit 10; }
 DISPLAY=:$D "$FF" -v error -f x11grab -framerate 15 -video_size 1280x720 -i :$D \
   -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p "$OUT/authentic.mp4" -y & CAP=$!
 sleep 2

@@ -500,26 +500,47 @@ bot.once('spawn', async () => {
     if (!DEFERRED.length) { log('DEFERRED none'); return; }
     const todo = DEFERRED.splice(0, DEFERRED.length);
     log('DEFERRED_PASS ' + todo.length);
+    // Group by which SIDE of the structure the block sits on and serve each side from one vantage.
+    // Teleport-hopping to a fresh viewpoint per block would mean ~300 jump cuts in three minutes,
+    // which reads as glitching rather than building; walking to four vantages looks like a builder
+    // circling their work, and it is the same footage cost as one orbit lap.
+    const side = b => {
+      const dx = b.x + 0.5 - b.cx, dz = b.z + 0.5 - b.cz;
+      return Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'E' : 'W') : (dz > 0 ? 'S' : 'N');
+    };
+    const OFF = { E: [7, 0], W: [-7, 0], S: [0, 7], N: [0, -7] };
+    const groups = new Map();
+    for (const b of todo) { const k = side(b); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(b); }
+
     let done = 0, residual = 0;
-    for (const b of todo) {
-      const t = new Vec3(b.x + 0.5, b.y + 0.5, b.z + 0.5);
-      let ok = false;
-      // stand off in each of four directions and look at it; accept the first that frames it
-      for (const [ox, oz] of [[4,0],[-4,0],[0,4],[0,-4],[3,3],[-3,-3]]) {
-        const sx = Math.floor(b.x + ox), sz = Math.floor(b.z + oz);
-        const surf = surfaceOf(sx, sz);
-        if (!surf) continue;
-        const sy = surf.position.y + 1;
-        bot.chat(`/tp Builder ${sx + 0.5} ${sy} ${sz + 0.5}`); await sleep(650);
-        await lookAtLow(t, 0.0); await sleep(200);
-        if (placeInView(t)) { ok = true; break; }
+    for (const [k, blocks] of groups) {
+      const [ox, oz] = OFF[k];
+      const vx = Math.floor(blocks[0].cx + ox), vz = Math.floor(blocks[0].cz + oz);
+      const surf = surfaceOf(vx, vz);
+      if (surf) {
+        // walk there so the camera pans naturally; fall back to a tp only if pathfinding fails
+        await gotoNear({ x: vx, y: surf.position.y + 1, z: vz }, 2, 9000);
+        if (bot.entity.position.distanceTo(new Vec3(vx + 0.5, surf.position.y + 1, vz + 0.5)) > 5) {
+          bot.chat(`/tp Builder ${vx + 0.5} ${surf.position.y + 1} ${vz + 0.5}`); await sleep(800);
+        }
       }
-      bot.chat(`/setblock ${b.x} ${b.y} ${b.z} minecraft:${b.block}`);
-      await sleep(360);
-      if (ok) { rec('place', b.block); done++; } else residual++;
+      // nearest-first within the group keeps the camera sweeping smoothly instead of jumping about
+      const eye0 = bot.entity.position;
+      blocks.sort((a, b2) => (Math.hypot(a.x - eye0.x, a.z - eye0.z) - Math.hypot(b2.x - eye0.x, b2.z - eye0.z)));
+      log('DEFERRED_SIDE ' + k + ' n=' + blocks.length + ' from ' + [vx, vz]);
+      for (const b of blocks) {
+        const t = new Vec3(b.x + 0.5, b.y + 0.5, b.z + 0.5);
+        await smoothLookAt(t, 0.0, 3);
+        await sleep(160);
+        const ok = placeInView(t);
+        bot.chat(`/setblock ${b.x} ${b.y} ${b.z} minecraft:${b.block}`);
+        await sleep(340);
+        if (ok) { rec('place', b.block); done++; } else residual++;
+      }
     }
     log('DEFERRED_DONE recorded=' + done + ' residual=' + residual);
   }
+
 
   async function buildHouse() {
     await moveToOpenSite(8);

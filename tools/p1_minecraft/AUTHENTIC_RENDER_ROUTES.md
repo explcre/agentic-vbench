@@ -69,6 +69,42 @@ The version rename is real and also fixed: `locateCmd()`/`biomeId()` in `bot_pla
 **Lesson for the notes:** "Unknown command" from a Minecraft server means *unknown **to you***. Check
 permission before version.
 
+### Fourth and fifth blockers, both caught by looking at the picture
+
+The first session that produced a real ledger (378 s, 75 events) was still **unusable**, and neither
+fault showed up in any log line I was checking:
+
+**(a) The whole recording was the death screen.** `Camera` joined at 03:27:35 and was only made a
+spectator at 03:27:39 — four seconds in *survival*, at a default world spawn that `probe_1204.js`
+had already measured as `SURFACE stone`, i.e. inside terrain. It suffocated. `/spectate` then failed
+with `Attempt to teleport removed player Camera restricted`, because a dead player cannot be
+teleported, and the client sat on the death screen for the entire capture.
+
+My verification was the problem: the script printed `SPECTATE_LOCKED` unconditionally after issuing
+the command, so a dead camera looked like a success. And the pixel check I ran — brightness 99, std
+45, ~1129 distinct colours — **cannot** distinguish a live world from a world dimmed under a
+translucent overlay, so it "confirmed" a rendered world that was not there. `bands.py` settles it
+objectively: an in-world view has **0** UI button slabs, that frame had **3**, including a 594×54
+slab (a stock menu button at GUI scale 3), with mean R=110 against G=84 — the death screen's red
+wash.
+
+Fixes: `/setworldspawn` onto the bot's own open dry ground; a watcher that is *already connected*
+when the client joins so spectator mode is set within a tick; `/spectate` re-issued until the server
+confirms it by the camera's position tracking the bot; and a `bands.py` precheck that aborts the run
+unless `buttons=0`. The precheck was verified against the offending frame — it rejects it.
+
+**(b) The footage leaked the answers in chat.** `Camera` was `/op`'d, and Paper broadcasts
+`Builder issued server command: /setblock … minecraft:oak_planks` to **every op**. With
+`chatVisibility:0` in `options.txt`, the exact ground-truth block names were being printed on screen
+in the graded video.
+
+Fixes: never op the Camera (it needs no permission — the Director executes `/spectate`),
+`/gamerule sendCommandFeedback false`, `/gamerule logAdminCommands false`, and
+`chatVisibility:2` in `options.txt`. All four are now asserted as preflights, and the run aborts if
+`Camera` appears in `ops.json`.
+
+This class of bug does not exist on the headless path, which renders no chat at all.
+
 ### Known limitation of the `/spectate` camera: no player HUD
 
 `/spectate` puts the camera *inside* the bot's view, which is exactly the framing we want — but a
