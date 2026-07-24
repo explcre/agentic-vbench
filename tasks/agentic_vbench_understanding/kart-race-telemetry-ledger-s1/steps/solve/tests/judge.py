@@ -2,36 +2,32 @@
 """Grade a SuperTuxKart race-telemetry reconstruction. Pure stdlib, deterministic.
 
 The video is a suite of AI-driven races on different tracks. For each race the agent reports,
-per kart: its starting grid slot, where it finished, how many powerup boxes it collected, and
-how much nitro it picked up.
+per kart, how many powerup boxes it collected and how much nitro it picked up. (Finishing
+order and starting grid may be reported for context but are NOT scored — see below.)
 
 Every component is scored as **rank agreement**, not exact match:
 
-    reward =  0.45 * tau(finish order)
-            + 0.15 * tau(start grid order)
-            + 0.25 * tau(items-collected order)
-            + 0.15 * tau(nitro-collected order)
+    reward = max(0, mean over races of [0.60*tau(items) + 0.40*tau(nitro)])
 
 where tau is the normalised Kendall correlation over kart pairs,
 `(concordant - discordant) / n_pairs`, clamped at 0.
 
-Which fields are scored is a fairness decision, not a convenience one. Only fields that are
-(a) machine-exact in STK's profile table, (b) visible on camera, and (c) dense enough that a
-rank has real spread are included: the starting grid, the finishing order (ranking column +
-minimap), powerup-box pickups and nitro pickups (both dense, 3-22 per kart). Rescues and
-banana hits are in the table too but are almost always zero, so ranking them is neither
-discriminative nor guess-proof — they are deliberately NOT scored.
+A field is scored only if it is (a) machine-exact in STK's profile table, (b) visible on
+camera, and (c) NOT already displayed by the game's HUD. Powerup-box and nitro pickups are the
+only quantities meeting all three: both are dense (3-22 per kart) and nowhere on screen, so
+they must be counted by following each kart through the race. Rescues and banana hits are in
+the table but are almost always zero — ranking near-constant columns is neither discriminative
+nor guess-proof.
 
-Why rank agreement rather than per-field accuracy. An earlier version scored exact positions
-plus counts with a tolerance, and measured floors far above the family's anti-shortcut bar: a
-blind guess (random order, modal counts) scored 0.33 and reading only the starting grid from
-a single frame scored 0.43. Both exploited free credit — a random permutation still lands
-1-in-6 positions exactly, and sparse counts like bananas and rescues are almost always zero,
-so guessing zero is nearly right. Under rank agreement, guessing at random earns 0 in
-expectation (concordant and discordant pairs cancel), and a wrong-but-confident ordering can
-score below zero before clamping, so there is no lazy floor to sit on. Partial knowledge
-still earns partial credit: getting the podium right but the midfield wrong scores well
-above zero.
+Two scoring designs were rejected by measurement, not taste:
+  * Exact positions + tolerant counts: blind guessing scored 0.33 and reading only the start
+    grid scored 0.43, because a random permutation still lands 1-in-6 positions exactly and
+    sparse counts are almost always guessable.
+  * Rank agreement including finish + start grid: a real Codex run scored 0.557, with tau 0.75
+    on finish and 0.90 on start — the ranking column and grid simply display those, so it was
+    rewarding leaderboard reading. The same run scored 0.27 / 0.12 on the pickup counts.
+Rank agreement over the off-HUD counts keeps the guessing floor at ~0 (concordant and
+discordant pairs cancel) while still granting partial credit for partial knowledge.
 
 Karts are matched by name — the character is visible on track and in the ranking icons — so a
 submission that gets the order right but mislabels who is who is scored accordingly. Karts
@@ -45,10 +41,14 @@ from pathlib import Path
 
 GT_PATH = Path(__file__).with_name("ground_truth.json")
 # (ground-truth field, prediction field, weight)
-DIMS = [("finish_position", "finish_position", 0.45),
-        ("start_position",  "start_position",  0.15),
-        ("items_collected", "items_collected", 0.25),
-        ("nitro_collected", "nitro_collected", 0.15)]
+# Only OFF-HUD quantities are scored. Calibration showed the on-screen ranking column and
+# starting grid hand an agent the finishing order and start slots almost for free (Codex tau
+# 0.75 / 0.90) — that is leaderboard reading, not video understanding. The pickup counts are
+# not displayed anywhere: they require following each kart through the whole race and counting
+# discrete events (Codex 0.27 / 0.12). Finish and start may still be REPORTED for context;
+# they are ignored by the scorer, like `track`.
+DIMS = [("items_collected", "items_collected", 0.60),
+        ("nitro_collected", "nitro_collected", 0.40)]
 
 
 def norm(s):
@@ -63,7 +63,13 @@ def as_num(v):
 
 
 def tau(pairs):
-    """Normalised Kendall correlation over (gt_value, pred_value) pairs, clamped at 0."""
+    """Normalised Kendall correlation over (gt_value, pred_value) pairs. SIGNED.
+
+    Deliberately not clamped here: clamping each race/field at 0 discards the negative half of
+    the noise distribution, so random guessing averages POSITIVE (measured 0.156 with 6 karts).
+    The signed values are aggregated first and the final reward is clamped once, which keeps a
+    guess at ~0 in expectation.
+    """
     n = len(pairs)
     if n < 2:
         return 0.0, 0
@@ -86,7 +92,7 @@ def tau(pairs):
                 dis += 1
     if total == 0:
         return 0.0, 0
-    return max(0.0, (con - dis) / total), total
+    return (con - dis) / total, total
 
 
 def main():
@@ -127,7 +133,7 @@ def main():
         per_race.append({"track": g.get("track"), "score": round(race_score, 4),
                          "taus": taus, "n_karts": len(g["karts"]), "n_matched": n_matched})
         total += race_score
-    reward = total / max(1, len(gt_races))
+    reward = max(0.0, total / max(1, len(gt_races)))   # clamp ONCE, after aggregation
 
     det = {"reason": reason, "n_races": len(gt_races), "n_predicted_races": len(pred_races),
            "per_race": per_race, "weights": {f: w for f, _, w in DIMS},

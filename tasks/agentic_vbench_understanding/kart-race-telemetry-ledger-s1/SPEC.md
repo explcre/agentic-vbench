@@ -17,7 +17,7 @@ modalities_required:
   video: karts, ranking column and minimap are all visual.
   audio: not used.
 
-question: For each race, reconstruct per kart the start grid, finishing order, powerup-box count and nitro count.
+question: For each race, reconstruct per kart the powerup-box count and nitro count (off-HUD quantities).
 output_schema: '{"races": [{"track": str, "karts": [{"kart": str, "start_position": int, "finish_position": int, "items_collected": int, "nitro_collected": int}]}]}'
 
 ground_truth:
@@ -29,20 +29,23 @@ ground_truth:
                 harness path (solve.sh -> judge.py), all four races finish_tau = items_tau = 1.0.
 
 scorer:
-  metric: "0.45*tau(finish) + 0.15*tau(start grid) + 0.25*tau(items) + 0.15*tau(nitro);
-           tau = normalised Kendall correlation over kart pairs, clamped at 0, avg over races."
+  metric: "max(0, mean_races[0.60*tau(items) + 0.40*tau(nitro)]); tau = SIGNED normalised
+           Kendall correlation over kart pairs, aggregated then clamped once."
   oracle_reward: 1.0
   null_reward: 0.0
-  measured_ablations:        # on the shipped 4-race ground truth, 500 trials
-    blind_guess: 0.16        # all four fields random (p95 0.26)
-    grid_only: 0.22          # read the start grid from one frame, guess finish=grid, const counts
-    podium_only: 0.36        # top-3 finish right, rest unknown
+  measured_ablations:          # on the shipped ground truth, 500+ trials
+    blind_guess: 0.06          # random counts (p95 0.24)
+    constant_counts: 0.0       # every kart given the same count
+    leaderboard_only: 0.0      # reads the ranking column/grid, reports no pickup info
     empty: 0.0
-  # grid_only exceeds a naive 0.15 line for an honest reason, not a leak: correctly reading
-  # the six-kart starting grid is genuine single-frame perception (worth the 0.15 start
-  # weight) and grid weakly predicts finish in racing (~0.07 of the finish weight). The
-  # other ~0.78 of the reward — the finishing order, item and nitro rankings — provably
-  # requires watching the whole race; blind (no perception at all) stays at 0.16.
+  measured_agents:
+    codex_gpt56: 0.064         # real run, 330k tokens, ~50 tool calls
+  # Calibration drove this design. Scoring finish + start too gave Codex 0.557 (tau 0.75 /
+  # 0.90) because the ranking column and grid simply display them — leaderboard reading, not
+  # understanding. Scoring only the off-HUD pickup counts drops the same run to 0.064. A
+  # second flaw was found in the scorer itself: clamping tau per race discarded the negative
+  # half of the noise, so random guessing averaged 0.156; aggregating signed tau and clamping
+  # once puts the guess floor at 0.06.
 
 difficulty: {strong_agent_reward: TBD, tool_call_turns: TBD, agent_model: TBD}
 

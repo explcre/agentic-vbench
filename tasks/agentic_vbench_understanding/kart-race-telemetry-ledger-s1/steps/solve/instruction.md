@@ -4,11 +4,14 @@ You are given one video at `/workspace/materials/race.mp4`: a suite of **four AI
 SuperTuxKart races**, one after another, each on a different track with six karts. A race
 change is obvious — the scene cuts to a new track and a new starting grid.
 
-For each race, reconstruct, per kart:
-- **which grid slot it started in** (read the starting line before the race begins),
-- **the order it finished in**,
-- **how many powerup boxes it collected**, and
+For each race, reconstruct **per kart**:
+- **how many powerup boxes it collected** (the question-mark boxes), and
 - **how much nitro it picked up** (the small and large nitro cans along the track).
+
+Neither number appears anywhere on screen — you have to follow each kart through the race and
+count. You may also report `start_position` and `finish_position` for context, but they are
+**not scored**: the ranking column and starting grid display them, so reading them off the HUD
+is not what this task measures.
 
 Evidence is on screen throughout:
 
@@ -50,15 +53,13 @@ Write `/workspace/output/solution.json`, races in the order they appear in the v
 
 Every field is scored as **rank agreement** (normalised Kendall correlation), not exact match:
 
-    reward =  0.45 * agreement(finish order)
-            + 0.15 * agreement(start-grid order)
-            + 0.25 * agreement(items-collected order)
-            + 0.15 * agreement(nitro-collected order)
+    reward = max(0, mean over races of [ 0.60 * agreement(items order)
+                                       + 0.40 * agreement(nitro order) ])
 
-Getting an order partly right earns partial credit — the podium alone is worth real score.
-Guessing earns nothing: a random ordering scores 0 in expectation, because agreeing and
-disagreeing pairs cancel out. You do not have to count pickups exactly; ranking the karts by
-how many they collected is what matters.
+You do not have to count pickups exactly — ranking the karts by how many they collected is
+what matters, so getting the heavy and light collectors in roughly the right order earns
+credit. Guessing earns nothing: a random ordering scores 0 in expectation, because agreeing and
+disagreeing pairs cancel out.
 
 ## Rules
 - Stay inside this working directory. Do not read, write, or search outside it.
