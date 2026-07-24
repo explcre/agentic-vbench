@@ -38,10 +38,12 @@ scorer:
 difficulty: {strong_agent_reward: TBD, tool_call_turns: TBD, agent_model: TBD}
 
 anti_shortcut:
+  single_frame: 0.0             # Codex given one mid-video frame: correctly wrote an empty ledger
   most_common_token_xN: 0.069   # the single commonest (action, target), repeated
   actions_right_targets_stone: 0.024
   correct_multiset_shuffled: 0.231   # order sensitivity, not a shortcut — see Known limitations
   empty: 0.0
+  frame_dump_no_tools: pending  # 19-min video at 1fps is >1000 frames, far past context; measuring
 
 input:
   url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game_v30.mp4
