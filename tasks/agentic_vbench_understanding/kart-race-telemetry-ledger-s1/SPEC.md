@@ -17,8 +17,8 @@ modalities_required:
   video: karts, ranking column and minimap are all visual.
   audio: not used.
 
-question: For each race, reconstruct the finishing order and per-kart powerup-box count.
-output_schema: '{"races": [{"track": str, "karts": [{"kart": str, "finish_position": int, "items_collected": int}]}]}'
+question: For each race, reconstruct per kart the start grid, finishing order, powerup-box count and nitro count.
+output_schema: '{"races": [{"track": str, "karts": [{"kart": str, "start_position": int, "finish_position": int, "items_collected": int, "nitro_collected": int}]}]}'
 
 ground_truth:
   source: SuperTuxKart 1.5 profile mode (--profile-laps) result table; the AI drives every
@@ -29,15 +29,20 @@ ground_truth:
                 harness path (solve.sh -> judge.py), all four races finish_tau = items_tau = 1.0.
 
 scorer:
-  metric: "0.70 * tau(finish order) + 0.30 * tau(items order); tau = normalised Kendall
-           correlation over kart pairs, clamped at 0, averaged over races."
+  metric: "0.45*tau(finish) + 0.15*tau(start grid) + 0.25*tau(items) + 0.15*tau(nitro);
+           tau = normalised Kendall correlation over kart pairs, clamped at 0, avg over races."
   oracle_reward: 1.0
   null_reward: 0.0
-  measured_ablations:        # on the shipped 4-race ground truth
-    blind_guess: 0.15        # random order + random counts (500 trials, p95 0.30)
-    grid_only: 0.11          # read the start grid from one frame, never watch the race
-    reverse_grid: 0.18
+  measured_ablations:        # on the shipped 4-race ground truth, 500 trials
+    blind_guess: 0.16        # all four fields random (p95 0.26)
+    grid_only: 0.22          # read the start grid from one frame, guess finish=grid, const counts
+    podium_only: 0.36        # top-3 finish right, rest unknown
     empty: 0.0
+  # grid_only exceeds a naive 0.15 line for an honest reason, not a leak: correctly reading
+  # the six-kart starting grid is genuine single-frame perception (worth the 0.15 start
+  # weight) and grid weakly predicts finish in racing (~0.07 of the finish weight). The
+  # other ~0.78 of the reward — the finishing order, item and nitro rankings — provably
+  # requires watching the whole race; blind (no perception at all) stays at 0.16.
 
 difficulty: {strong_agent_reward: TBD, tool_call_turns: TBD, agent_model: TBD}
 

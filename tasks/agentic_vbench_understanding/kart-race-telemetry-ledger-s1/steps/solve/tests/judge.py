@@ -2,14 +2,25 @@
 """Grade a SuperTuxKart race-telemetry reconstruction. Pure stdlib, deterministic.
 
 The video is a suite of AI-driven races on different tracks. For each race the agent reports,
-per kart, where it finished and how many powerup boxes it collected.
+per kart: its starting grid slot, where it finished, how many powerup boxes it collected, and
+how much nitro it picked up.
 
-Both components are scored as **rank agreement**, not exact match:
+Every component is scored as **rank agreement**, not exact match:
 
-    reward = 0.70 * tau(finish order) + 0.30 * tau(items-collected order)
+    reward =  0.45 * tau(finish order)
+            + 0.15 * tau(start grid order)
+            + 0.25 * tau(items-collected order)
+            + 0.15 * tau(nitro-collected order)
 
 where tau is the normalised Kendall correlation over kart pairs,
 `(concordant - discordant) / n_pairs`, clamped at 0.
+
+Which fields are scored is a fairness decision, not a convenience one. Only fields that are
+(a) machine-exact in STK's profile table, (b) visible on camera, and (c) dense enough that a
+rank has real spread are included: the starting grid, the finishing order (ranking column +
+minimap), powerup-box pickups and nitro pickups (both dense, 3-22 per kart). Rescues and
+banana hits are in the table too but are almost always zero, so ranking them is neither
+discriminative nor guess-proof — they are deliberately NOT scored.
 
 Why rank agreement rather than per-field accuracy. An earlier version scored exact positions
 plus counts with a tolerance, and measured floors far above the family's anti-shortcut bar: a
@@ -33,7 +44,11 @@ import argparse, json, re
 from pathlib import Path
 
 GT_PATH = Path(__file__).with_name("ground_truth.json")
-W_FINISH, W_ITEMS = 0.70, 0.30
+# (ground-truth field, prediction field, weight)
+DIMS = [("finish_position", "finish_position", 0.45),
+        ("start_position",  "start_position",  0.15),
+        ("items_collected", "items_collected", 0.25),
+        ("nitro_collected", "nitro_collected", 0.15)]
 
 
 def norm(s):
@@ -95,29 +110,29 @@ def main():
     for i, g in enumerate(gt_races):
         p = pred_races[i] if i < len(pred_races) and isinstance(pred_races[i], dict) else {}
         pk = {norm(k.get("kart")): k for k in p.get("karts", []) if isinstance(k, dict)}
-        fin, itm = [], []
-        for k in g["karts"]:
-            q = pk.get(norm(k["kart"]))
-            if not q:
-                continue
-            pf, pi = as_num(q.get("finish_position")), as_num(q.get("items_collected"))
-            if pf is not None:
-                fin.append((float(k["finish_position"]), pf))
-            if pi is not None:
-                itm.append((float(k["items_collected"]), pi))
-        t_fin, n_fin = tau(fin)
-        t_itm, _ = tau(itm)
-        s = W_FINISH * t_fin + W_ITEMS * t_itm
-        per_race.append({"track": g.get("track"), "score": round(s, 4),
-                         "finish_tau": round(t_fin, 4), "items_tau": round(t_itm, 4),
-                         "n_karts": len(g["karts"]), "n_matched": len(fin), "n_pairs": n_fin})
-        total += s
+        race_score, taus, n_matched = 0.0, {}, 0
+        for gt_field, pred_field, w in DIMS:
+            pairs = []
+            for k in g["karts"]:
+                q = pk.get(norm(k["kart"]))
+                if not q or gt_field not in k:
+                    continue
+                pv = as_num(q.get(pred_field))
+                if pv is not None:
+                    pairs.append((float(k[gt_field]), pv))
+            t, _ = tau(pairs)
+            taus[gt_field] = round(t, 4)
+            race_score += w * t
+            n_matched = max(n_matched, len(pairs))
+        per_race.append({"track": g.get("track"), "score": round(race_score, 4),
+                         "taus": taus, "n_karts": len(g["karts"]), "n_matched": n_matched})
+        total += race_score
     reward = total / max(1, len(gt_races))
 
     det = {"reason": reason, "n_races": len(gt_races), "n_predicted_races": len(pred_races),
-           "per_race": per_race,
-           "note": "reward = 0.70*tau(finish order) + 0.30*tau(items order); tau is normalised "
-                   "Kendall correlation clamped at 0, so guessing scores 0 in expectation"}
+           "per_race": per_race, "weights": {f: w for f, _, w in DIMS},
+           "note": "reward = sum_field w*tau(field order); tau is normalised Kendall "
+                   "correlation clamped at 0, so guessing scores 0 in expectation"}
     a.reward_json.parent.mkdir(parents=True, exist_ok=True)
     a.reward_json.write_text(json.dumps({"reward": round(reward, 4), "details": det}, indent=2))
     a.reward_txt.write_text(f"{round(reward, 4)}\n")
