@@ -106,8 +106,18 @@ def main():
         pred_w = weapon_seq(raw)
     except Exception as exc:  # noqa: BLE001
         reason = f"unreadable solution.json: {exc}"
+    # Ledger score is an ORDER-AWARE, RECALL-WEIGHTED F-beta over the (action, target) sequence.
+    # beta=2 weights recall 2x precision: the task is to reconstruct the WHOLE ledger, and a
+    # confident partial answer (high precision, low recall) is most of the task left undone. Under
+    # plain F1 an agent that correctly named 11% of events in order scored 0.20; F2 scores that 0.14,
+    # matching the intuition that finding one event in nine is not "20% solved". Oracle (perfect
+    # recall and precision) is still exactly 1.0, and an empty or all-wrong answer is still 0.
+    BETA = 2.0
     lcs = lcs_len(preds, gt); np_, ng = len(preds), len(gt)
-    f1 = (2*lcs/(np_+ng)) if (np_+ng) else 0.0
+    prec = (lcs / np_) if np_ else 0.0
+    rec = (lcs / ng) if ng else 0.0
+    b2 = BETA * BETA
+    f1 = ((1 + b2) * prec * rec / (b2 * prec + rec)) if (b2 * prec + rec) > 0 else 0.0
 
     # Weapon credit is earned only on kills the submission actually IDENTIFIED — i.e. kill events
     # that fall inside the ledger's LCS alignment. Scoring the weapon sequence independently made it
@@ -124,9 +134,11 @@ def main():
     f1w = (2*wl/(nw_p+nw_g)) if (nw_p+nw_g) else 0.0
     reward = 0.85*f1 + 0.15*f1w
     det = {"reason": reason, "n_ground_truth": ng, "n_predicted": np_, "lcs": lcs,
-           "ledger_f1": round(f1,4), "n_gt_kills": nw_g, "n_pred_kills": nw_p,
+           "ledger_precision": round(prec,4), "ledger_recall": round(rec,4), "beta": BETA,
+           "ledger_fbeta": round(f1,4), "n_gt_kills": nw_g, "n_pred_kills": nw_p,
            "aligned_kills": len(aligned), "weapon_correct": wl, "weapon_f1": round(f1w,4),
-           "note": "reward = 0.85*LCS-F1(action,target) + 0.15*weapon-F1 over LCS-aligned kills"}
+           "note": "reward = 0.85*LCS-Fbeta(action,target; beta=2, recall-weighted) "
+                   "+ 0.15*weapon-F1 over LCS-aligned kills"}
     a.reward_json.parent.mkdir(parents=True, exist_ok=True)
     a.reward_json.write_text(json.dumps({"reward": round(reward,4), "details": det}, indent=2))
     a.reward_txt.write_text(f"{round(reward,4)}\n")

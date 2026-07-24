@@ -54,9 +54,14 @@ Mobs (kill): `cow`, `pig`, `sheep`, `chicken`, `wolf`, `mooshroom`, `polar_bear`
 
 ## How it is scored
 
-Order-aware: the reward is `0.85 *` an LCS-F1 over the ordered `(action, target)` sequence
-plus `0.15 *` an LCS-F1 over the ordered weapons of the kill events. Missed actions,
-invented actions, wrong block/mob types, and wrong ordering all lower the score.
+Order-aware and recall-weighted: the reward is `0.85 *` an order-aware **F2** over the ordered
+`(action, target)` sequence (a longest-common-subsequence match, with recall weighted twice as
+heavily as precision) plus `0.15 *` a weapon score over the kills you place correctly. Missed
+actions, invented actions, wrong block/mob types, and wrong ordering all lower the score.
+
+**Recall matters more than a confident subset.** Because recall is weighted double, reporting a
+small number of events you are sure about scores poorly — the task is to reconstruct *most* of the
+ledger, in order, not to list a safe fraction of it. Watch the whole video.
 
 ## Rules
 - Stay inside this working directory. Do not read, write, or search outside it.
