@@ -371,10 +371,27 @@ bot.once('spawn', async () => {
   function locateCmd(b) { return MC_MAJOR >= 19 ? `/locate biome minecraft:${biomeId(b)}`
                                                 : `/locatebiome minecraft:${biomeId(b)}`; }
 
-  async function tpToBiome(biome) {
-    const found = await new Promise(resolve=>{ const h=(msg)=>{ try{ const j=JSON.stringify(msg.json||msg);
+  function locateOnce(biome, ms) {
+    return new Promise(resolve=>{ const h=(msg)=>{ try{ const j=JSON.stringify(msg.json||msg);
       const m=j.match(/tp @s (-?\d+) (~|-?\d+) (-?\d+)/); if(m&&/locate|nearest/i.test(j)){ bot.removeListener('message',h); resolve([+m[1],+m[3]]); } }catch(e){} };
-      bot.on('message',h); bot.chat(locateCmd(biome)); setTimeout(()=>{bot.removeListener('message',h);resolve(null);},8000); });
+      bot.on('message',h); bot.chat(locateCmd(biome)); setTimeout(()=>{bot.removeListener('message',h);resolve(null);},ms); });
+  }
+  async function tpToBiome(biome) {
+    // /locate biome searches out to thousands of blocks and can take well over 8 s on a busy 1.20
+    // server (e.g. while night-time hostiles are spawning), and a biome may not be near the current
+    // search origin at all. Give it a generous window, and on a miss jump a few thousand blocks and
+    // search again from there — a whole render used to lose six biomes (and the desert temple) to a
+    // single tight timeout.
+    let found = await locateOnce(biome, 20000);
+    if (!found) {
+      const p = bot.entity.position;
+      for (const [ox, oz] of [[4000, 0], [-4000, 3000], [0, -5000]]) {
+        bot.chat(`/tp Builder ${Math.floor(p.x + ox)} 200 ${Math.floor(p.z + oz)}`); await sleep(3000);
+        found = await locateOnce(biome, 20000);
+        if (found) break;
+        log('biome-retry ' + biome + ' from ' + [Math.floor(p.x + ox), Math.floor(p.z + oz)]);
+      }
+    }
     if(!found){ log('biome-miss '+biome); return false; }
     bot.chat(`/tp Builder ${found[0]} 150 ${found[1]}`); await sleep(4000);   // load the chunk
     const ok = await landDry(found[0], found[1]);
