@@ -25,6 +25,11 @@ process.on('unhandledRejection', e => log('REJECT ' + (e && e.stack || e)));
 const MC_VERSION = process.env.MC_VERSION || '1.16.5';
 const MC_PORT = parseInt(process.env.MC_PORT || '25577', 10);
 const USE_VIEWER = process.env.NO_VIEWER !== '1';
+// The real Java client (authentic path) renders EVERY mob, so hostiles are fair there.
+// The headless prismarine-viewer draws only 11 of 27 (MOB_RENDER_AUDIT.md), so this stays
+// off by default and is enabled per-render via P1_HOSTILES=1 on the authentic path.
+const HOSTILES = process.env.P1_HOSTILES === '1';
+const EXTRA_BUILDS = process.env.P1_EXTRA_BUILDS === '1';   // desert temple etc. (authentic path)
 const bot = mineflayer.createBot({ host:'localhost', port:MC_PORT, username:'Builder', version:MC_VERSION, auth:'offline' });
 bot.loadPlugin(pathfinder);
 bot.on('error', e => log('BOT_ERR ' + e.message));
@@ -541,6 +546,7 @@ bot.once('spawn', async () => {
       log('place-deferred ' + block + ' ' + [x, y, z] + ' ' + placeWhy(t));
       return;
     }
+    try { bot.swingArm('right'); } catch(_){}   // a real building motion the spectator camera sees
     bot.chat(`/setblock ${x} ${y} ${z} minecraft:${block}`);
     await sleep(400);
     rec('place', block);
@@ -614,6 +620,7 @@ bot.once('spawn', async () => {
           }
         }
         const ok = placeSeen(t);
+        try { bot.swingArm('right'); } catch(_){}
         bot.chat(`/setblock ${b.x} ${b.y} ${b.z} minecraft:${b.block}`);
         await sleep(340);
         if (ok) { rec('place', b.block); done++; }
@@ -738,6 +745,31 @@ bot.once('spawn', async () => {
     await finishDeferred();
     await orbitAndShow(new Vec3(X + 1, Y + 1, Z + 1), 6, 5, 2);       // 3x3 well
   }
+  // A desert temple: a stepped sandstone ziggurat, a third structure type with a wholly different
+  // palette (sandstone / red_sandstone bands) and silhouette from the cabin and tower. Built tier by
+  // tier, bottom to top, each tier's shell as one screen-ordered run so it reads as real building.
+  async function buildDesertTemple() {
+    await moveToOpenSite(7);
+    const q = bot.entity.position.floored(); const X = q.x + 2, Y = q.y, Z = q.z;
+    const CX = X + 3.5, CZ = Z + 3.5;                                 // 7x7 base
+    const band = h => (h === 1 ? 'red_sandstone' : 'sandstone');      // one red accent course
+    for (let h = 0; h < 4; h++) {
+      const lo = h, hi = 6 - h;                                       // 7x7 -> 5x5 -> 3x3 -> 1x1
+      const ring = [];
+      for (let dx = lo; dx <= hi; dx++) for (let dz = lo; dz <= hi; dz++) {
+        if (dx === lo || dx === hi || dz === lo || dz === hi || h === 3)
+          ring.push({ x: X + dx, y: Y + h, z: Z + dz, b: band(h) });
+      }
+      await placeRun(ring, [0, 1], CX, CZ);                           // fill each tier from the south
+    }
+    // a small entrance frame on the south face + a torch, so it reads as a temple not a mound
+    await placeVisible(X + 3, Y, Z + 6, 'sandstone', CX, CZ);
+    await placeVisible(X + 3, Y + 1, Z + 6, 'red_sandstone', CX, CZ);
+    await placeVisible(X + 3, Y + 2, Z + 6, 'torch', CX, CZ);
+    log('TEMPLE_DONE');
+    await finishDeferred();
+    await orbitAndShow(new Vec3(CX, Y + 1, CZ), 10, 6, 4);            // 7x7 base
+  }
   // Ride a boat across the water for a few seconds. prismarine-viewer DOES render boats and
   // riders, so this adds real, natural first-person variety. Produces no ledger events (it is
   // travel, not a mine/place/kill), so it is kept short.
@@ -845,13 +877,21 @@ bot.once('spawn', async () => {
       bot.chat('/summon minecraft:iron_golem ~ ~1 ~5'); await sleep(1500);   // village guardian
       await survey(6,700); });
     await phase(L + 'combat_showcase', async()=>{ await huntMelee('chicken'); await huntBow('cow');
-      await huntMelee('wolf'); await huntBow('pig'); await gatherCategory('grass',3); });
+      await huntMelee('wolf'); await huntBow('pig');
+      // Hostiles render only on the real Java client; on the authentic path fight the classics too.
+      if (HOSTILES) { bot.chat('/time set night'); await sleep(400);
+        await huntMelee('zombie'); await huntBow('skeleton'); await huntMelee('spider');
+        await huntMelee('creeper'); await huntBow('husk');
+        bot.chat('/time set day'); await sleep(400); }
+      await gatherCategory('grass',3); });
     await phase(L + 'beach', async()=>{ if(await tpToBiome('beach')){ await survey(6,600);
       await gatherCategory('sand',4,120); await gatherCategory('grass',2,120);
       await huntMelee('turtle'); await boatRide(); await huntBow('cow'); await huntMelee('pig'); } });
     await phase(L + 'desert', async()=>{ if(await tpToBiome('desert')){ await survey(6,600);
       await gatherCategory('sand',4,120); await gatherCategory('cactus',2,120); await gatherCategory('sandstone',3,120);
-      await huntMelee('sheep'); await huntBow('chicken'); } });
+      if (EXTRA_BUILDS && lap === 0) await buildDesertTemple();
+      await huntMelee('sheep'); await huntBow('chicken');
+      if (HOSTILES) { bot.chat('/time set night'); await sleep(400); await huntMelee('husk'); await huntBow('skeleton'); bot.chat('/time set day'); await sleep(400); } } });
     await phase(L + 'snowy', async()=>{ if(await tpToBiome('snowy_tundra')){ await survey(6,600);
       await gatherCategory('snow',4,120); await gatherCategory('ice',2,120);
       await huntBow('cow'); await huntMelee('pig'); await huntMelee('mooshroom'); } });

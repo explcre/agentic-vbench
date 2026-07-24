@@ -82,7 +82,9 @@ echo SERVER_READY
 
 # the gameplay bot — same file as the headless path, different version/port, viewer off
 cd "$TOOLS"
-MC_VERSION=1.20.4 MC_PORT=$PORT NO_VIEWER=1 P1_PHASES="$PHASES" \
+# P1_HOSTILES/P1_EXTRA_BUILDS: the real client renders every mob and we want the richer showcase,
+# so the authentic path fights creepers/zombies/skeletons/spiders and builds a desert temple.
+MC_VERSION=1.20.4 MC_PORT=$PORT NO_VIEWER=1 P1_HOSTILES=1 P1_EXTRA_BUILDS=1 P1_PHASES="$PHASES" \
   node bot_play8.js "$OUT/play.json" "$OUT/GO" "$OUT/DONE" > "$OUT/bot.log" 2>&1 & BOT=$!
 for i in $(seq 1 40); do grep -qi 'Builder joined' "$OUT/server.log" && break; sleep 2; done
 grep -qi 'Builder joined' "$OUT/server.log" || { echo "BOT_NEVER_JOINED"; tail -5 "$OUT/bot.log"; kill $BOT $SRVPID $XVFB; exit 5; }
