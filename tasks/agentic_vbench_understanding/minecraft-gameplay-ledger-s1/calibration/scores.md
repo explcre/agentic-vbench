@@ -18,9 +18,77 @@ are not comparable to v30 numbers** and are kept in a separate table.
 | single most-common token ×N | 0.0685 | — | — | genuine shortcut — under the 0.15 bar |
 | actions right, all targets "stone" | 0.0240 | — | — | genuine shortcut — under the 0.15 bar |
 | empty | 0.0 | — | — | |
-| **Codex `gpt-5.6-sol` (xhigh)** | _running_ | | | fresh run on v30, 2.5 h budget |
+| **Codex `gpt-5.6-sol` (xhigh)** | **0.2920** | **332** | 44,962,783 | ledger 0.3057, weapon 0.2143; reported 66 of 248 events |
 | Antigravity (Gemini‑3.x) | _to run_ | | | |
 | Claude Code (Fable 5 / Opus 4.8) | _to run_ | | | |
+
+## Codex on v30: 0.292 — where it comes from
+
+Codex finished **on its own** (exit 0, ~1 h of a 2.5 h budget, **332 tool calls**, 45.0 M input
+tokens, 60.8 k output). It was not cut off, so this is what it judged a complete answer.
+
+- It reported **66 of 248** events — recall **0.19** — but with good precision: LCS 48, so 48 of its
+  66 claims were right *and* in the right order (0.73). Order-aware LCS-F1 is deliberately generous
+  to a confident partial answer, which is why a 19% recall still scores 0.31 on the ledger.
+- **weapon 0.214**, down from 0.643 on v23. It named 10 kills, 7 of which aligned to real kills, and
+  got the weapon right on 3. The alignment gate is doing its job.
+
+Decomposition of the drop from 0.4197, using the *same* rollout under both weapon rules (valid — same
+video, same ground truth, only the rule differs):
+
+| | ledger F1 | weapon | reward |
+|---|---|---|---|
+| v23 rollout, old rule | 0.380 | 0.643 | 0.4197 |
+| v30 rollout, **old** rule | 0.3057 | 0.714 | 0.3670 |
+| v30 rollout, **new** rule | 0.3057 | 0.214 | **0.2920** |
+
+So the scorer fix accounts for **0.075** and the harder video for roughly **0.053**.
+
+### The remaining lever is length, and the arithmetic is specific
+
+The score is recall-limited, and recall is bounded by how much of the video the agent chooses to
+examine — not by the video's length. Codex spent ~1 h and stopped voluntarily at 66 reported events.
+If that self-imposed effort budget stays roughly fixed while the ledger grows, F1 ≈ 2·LCS/(n_pred +
+n_gt) falls close to 1/n_gt:
+
+| session | n_gt | n_pred (assumed ~66) | LCS (assumed ~48) | ledger F1 | reward |
+|---|---|---|---|---|---|
+| v30, 19 min | 248 | 66 | 48 | 0.306 | 0.292 |
+| ~45 min | ~560 | 66 | 48 | 0.153 | ~0.16 |
+| ~60 min | ~700 | 66 | 48 | 0.125 | ~0.11 |
+
+The family allows 10–300 min, so this is within spec, and for a *generator* it costs only more phases
+— no extra labelling. The assumption to check is whether the agent's effort really stays fixed as the
+video lengthens; that is an empirical question and the next measurement, not a claim.
+
+## Length vs difficulty — the recall-limit test (v30 248 ev, v31 633 ev)
+
+The v30 result was recall-limited: Codex reported a confident partial ledger and stopped. The
+hypothesis was that a longer video drives a fixed-effort agent's LCS-F1 down as ~1/n_gt, toward the
+<0.10 bar. v31 (a 3-lap, 53-min, 633-event session; oracle 1.0, all ablations under bar) tested it
+against a FRESH Codex run.
+
+| video | events | Codex tool-calls | n_predicted | LCS | recall | ledger F1 | weapon | **reward** |
+|---|---|---|---|---|---|---|---|---|
+| v30, 19 min | 248 | 332 | 66 | 48 | 0.19 | 0.306 | 0.214 | **0.292** |
+| v31, 53 min | 633 | 767 | 87 | 72 | 0.11 | 0.200 | 0.039 | **0.176** |
+
+**Verdict: length lowers the score (0.292 -> 0.176) but does NOT reach <0.10, because the agent
+partially compensates** — given a longer video it spent more than twice the tool-calls (332 -> 767)
+and reported more events (66 -> 87), so recall fell only 0.19 -> 0.11 rather than as 1/n_gt. Reward
+tracks ledger_f1 = 2*LCS/(n_pred + n_gt); with the agent's own LCS/n_pred growth, reaching
+ledger_f1 = 0.10 extrapolates to roughly n_gt ~ 1800-2400 events, i.e. a **~150-200 min** session.
+That is inside the family's 10-300 min window but is a large render.
+
+So this is honestly a **MEDIUM task (~0.18 at 53 min)**, not a sub-0.10 task at practical lengths.
+Two clean options, the choice is a scope call:
+  1. **Ship as medium.** Report 0.176 at 53 min; it is a well-formed, oracle-1.0, ablation-clean
+     ordered-reconstruction task that a strong agent only partly solves.
+  2. **Push length to ~150-200 min** for <0.10. The generator already supports it (P1_LAPS); cost is
+     the render + a ~190M-token calibration, scaling with length.
+
+The order-aware LCS-F1 is deliberately generous to a confident partial answer (the family's chosen
+metric), which is the root reason a partial ledger scores ~0.18 rather than near-0.
 
 ## Scorer correction found in v30 calibration
 
