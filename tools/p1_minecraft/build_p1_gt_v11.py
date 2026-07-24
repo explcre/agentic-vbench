@@ -44,8 +44,21 @@ def check_vocabulary(events, task_dir):
 tests = task / "steps/solve/tests"
 sol_dir = task / "steps/solve/solution"
 
+# Optional third arg: the last GO-relative second the video actually shows. Events after it were
+# recorded by the bot but fall outside the captured window (the capture wrap can end a few seconds
+# before the bot's final events), so keeping them in the ground truth would ask the agent to report
+# actions the video never shows — the same off-camera unfairness, at the tail. Trim them.
+raw = play["events"]
+if len(sys.argv) > 3:
+    cutoff_ms = float(sys.argv[3]) * 1000.0
+    kept = [e for e in raw if e.get("t_ms", 0) <= cutoff_ms]
+    if len(kept) != len(raw):
+        print(f"tail-trim: dropped {len(raw)-len(kept)} event(s) after {sys.argv[3]}s "
+              f"(outside the captured video)")
+    raw = kept
+
 events = [{k: v for k, v in e.items() if k in ("i", "action", "target", "tool")}
-          for e in play["events"]]
+          for e in raw]
 for i, e in enumerate(events):
     e["i"] = i
 

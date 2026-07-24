@@ -33,8 +33,15 @@ echo "raw=$RAW offset=${OFFSET}s events=$(/usr/bin/python3 -c "import json;print
 
 /usr/bin/python3 "$TOOLS/frame_audit.py" "$D/game_$V.mp4"
 
+# The ground truth must not contain events the RAW CAPTURE never filmed. The capture wrap can end a
+# few seconds before the bot's final events, so an event is only in the video if
+# offset + t <= raw_capture_duration. Compute that GO-relative cutoff from the raw webm (the
+# composite only trims dead head/tail time, so it never drops an event-bearing second the raw held).
+RAWDUR=$(/pkg/ffmpeg/4.2.2/bin/ffprobe -v error -show_entries format=duration -of csv=p=0 "$RAW")
+CUTOFF=$(/usr/bin/python3 -c "print(max(0.0, $RAWDUR - $OFFSET - 0.3))")
+echo "raw_capture=${RAWDUR}s offset=${OFFSET}s -> GT cutoff ${CUTOFF}s (GO-relative)"
 if [ -n "$TASK_DIR" ]; then
-  /usr/bin/python3 "$TOOLS/build_p1_gt_v11.py" "$PLAY" "$TASK_DIR"
+  /usr/bin/python3 "$TOOLS/build_p1_gt_v11.py" "$PLAY" "$TASK_DIR" "$CUTOFF"
 fi
 
 /pkg/ffmpeg/4.2.2/bin/ffprobe -v error -show_entries stream=width,height,r_frame_rate \

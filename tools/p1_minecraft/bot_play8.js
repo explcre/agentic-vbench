@@ -163,13 +163,12 @@ bot.once('spawn', async () => {
       const z = Math.floor(centre.z + Math.sin(a) * radius);
       const su = surfaceOf(x, z);
       if (!su || !DRY.has(su.name)) continue;
-      // Walk to the next vantage instead of teleporting — a /tp between stops is a jump cut, and
-      // the orbit stops sit only a few blocks apart on the circle, so walking reads as a person
-      // circling their build. Fall back to /tp if the pathfinder cannot get there in time, so a
-      // blocked route never stalls the session.
-      const dest = new Vec3(x + 0.5, su.position.y + 1, z + 0.5);
-      if (bot.entity.position.distanceTo(dest) <= 14) await gotoNear(dest, 1, 7000);
-      if (bot.entity.position.distanceTo(dest) > 2.5) { bot.chat(`/tp Builder ${dest.x} ${dest.y} ${dest.z}`); await sleep(700); }
+      // Teleport to each vantage, then EASE the look. Walking between stops was tried and reverted:
+      // pathfinding around a finished structure thrashes ("goal changed" repeatedly), which left the
+      // bot mispositioned and dropped a reliable 6/6 house orbit to 1/6. A position cut between stops
+      // is a minor cost; a broken visibility check is not. The camera turn itself stays smooth.
+      bot.chat(`/tp Builder ${x + 0.5} ${su.position.y + 1} ${z + 0.5}`);
+      await sleep(900);
       await smoothLookAt(centre, 0.5, 5);
       if (!structureVisible(centre, half)) { log('orbit-blocked at ' + [x, z]); continue; }
       await sleep(1100); shown++;
@@ -490,7 +489,9 @@ bot.once('spawn', async () => {
     const t = new Vec3(x + 0.5, y + 0.5, z + 0.5);
     await backOff(t, 3.0);                     // don't stand on top of what we are building
     await lookAtLow(t, 0.0);
-    if (!placeInView(t)) {
+    // Reposition when the block is not yet cleanly visible — cone OR occluded — so a block behind an
+    // already-built wall is walked around inline, not just handed to the deferred pass.
+    if (!placeSeen(t)) {
       let dx = x + 0.5 - cx, dz = z + 0.5 - cz;
       const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
       for (const d of [4.5, 5.5, 6.5]) {
@@ -505,11 +506,16 @@ bot.once('spawn', async () => {
           bot.chat(`/tp Builder ${sx + 0.5} ${sy} ${sz + 0.5}`); await sleep(700);
         }
         await lookAtLow(t, 0.0);
-        if (placeInView(t)) break;
+        if (placeSeen(t)) break;
       }
     }
     await sleep(220);
-    if (!placeInView(t)) {                     // defer instead of placing it unseen
+    // "seen" now means in the view cone AND not hidden behind something — a cone-only test passed
+    // blocks sitting behind an already-built wall, which is why some placed blocks were not actually
+    // visible. losClear allows an adjacent neighbour (the block is placed against existing structure)
+    // but rejects a wall meaningfully in front. Occluded blocks are DEFERRED, not placed unseen, so
+    // world state and the ledger still agree.
+    if (!placeSeen(t)) {
       DEFERRED.push({ x, y, z, block, cx, cz });
       log('place-deferred ' + block + ' ' + [x, y, z] + ' ' + placeWhy(t));
       return;
@@ -518,6 +524,8 @@ bot.once('spawn', async () => {
     await sleep(400);
     rec('place', block);
   }
+  // A placement is genuinely watchable only if it is both in the cone and in clear line of sight.
+  function placeSeen(t) { return placeInView(t) && losClear(t, true); }
 
   // Second pass over everything the camera missed: reposition until each block is genuinely in
   // view, then place and record it. Anything still impossible after this is placed and logged as
@@ -558,12 +566,42 @@ bot.once('spawn', async () => {
         const t = new Vec3(b.x + 0.5, b.y + 0.5, b.z + 0.5);
         await smoothLookAt(t, 0.0, 3);
         await sleep(160);
-        const ok = placeInView(t);
+        // if the block is still occluded from the group vantage, stand right in FRONT of the block's
+        // own exterior face — a couple of blocks out along its outward normal — where no other wall
+        // can get between the camera and it. Offsetting from the centre (as before) put the camera
+        // far enough back that an adjacent wall occluded corner blocks; offsetting from the BLOCK and
+        // staying close fixes that. Interior blocks (a torch inside the house) are only visible from
+        // inside, so also try a spot just inward. Stand on any solid ground, not only "dry" terrain.
+        if (!placeSeen(t)) {
+          let rx = b.x + 0.5 - b.cx, rz = b.z + 0.5 - b.cz;
+          const L = Math.hypot(rx, rz) || 1; rx /= L; rz /= L;
+          const tries = [[rx*2, rz*2], [rx*2.5, rz*2.5], [rx*3.5, rz*3.5],   // close, straight out
+                         [rx*2 - rz*1.5, rz*2 + rx*1.5], [rx*2 + rz*1.5, rz*2 - rx*1.5],  // front corners
+                         [-rx*2, -rz*2]];                                     // inside (torches)
+          for (const [ox2, oz2] of tries) {
+            const sx = Math.floor(b.x + 0.5 + ox2), sz = Math.floor(b.z + 0.5 + oz2);
+            let sy = null;
+            for (const dy of [0, 1, -1, 2]) {                                 // stand near the block's height
+              const foot = bot.blockAt(new Vec3(sx, b.y + dy - 1, sz));
+              const air = bot.blockAt(new Vec3(sx, b.y + dy, sz));
+              if (foot && air && foot.name !== 'air' && !WET.has(foot.name) && air.name === 'air') { sy = b.y + dy; break; }
+            }
+            if (sy == null) continue;
+            bot.chat(`/tp Builder ${sx + 0.5} ${sy} ${sz + 0.5}`); await sleep(550);
+            await smoothLookAt(t, 0.0, 3); await sleep(130);
+            if (placeSeen(t)) break;
+          }
+        }
+        const ok = placeSeen(t);
         bot.chat(`/setblock ${b.x} ${b.y} ${b.z} minecraft:${b.block}`);
         await sleep(340);
-        if (ok) { rec('place', b.block); done++; } else residual++;
+        if (ok) { rec('place', b.block); done++; }
+        else { rec('place', b.block); residual++;                 // still record: world must equal GT
+               log('deferred-residual ' + b.block + ' ' + [b.x,b.y,b.z]); }
       }
     }
+    // residual = placed-and-recorded but never framed with clear LOS. It must be small; the orbit
+    // pass then shows the finished structure's exterior, so a residual block is still seen there.
     log('DEFERRED_DONE recorded=' + done + ' residual=' + residual);
   }
 
