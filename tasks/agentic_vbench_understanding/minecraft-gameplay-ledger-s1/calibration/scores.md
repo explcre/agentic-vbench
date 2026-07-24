@@ -1,19 +1,60 @@
-# Calibration — minecraft-gameplay-ledger-s1 (v23)
+# Calibration — minecraft-gameplay-ledger-s1 (v30)
 
-**Scorer:** `reward = 0.85 · LCS-F1(action, target) + 0.15 · LCS-F1(weapon per kill)`, order-aware.
-**Media:** 843 s (14.0 min), 237 events (86 mine / 132 place / 19 kill), 44 distinct block+mob
-types, 7 biomes, 3 structures, 1280×720, no audio.
+**Scorer:** `reward = 0.85 · LCS-F1(action, target) + 0.15 · weapon-F1 over LCS-aligned kills`,
+order-aware. The weapon component changed in v30 — see *Scorer correction* below — so **v23 numbers
+are not comparable to v30 numbers** and are kept in a separate table.
+
+**Media:** `game_v30.mp4`, sha256 `6096f244…652f51e6f069248997459d9b945d9fde7c00`, 1144 s (19.1 min),
+**248 events** (83 mine / 147 place / 18 kill), 44 distinct block+mob types, 8 biomes, 3 structures
+(cabin, watchtower, well) + a staircase mine, 1280×720 @ 25 fps, no audio.
+2.4% of frames uninformative, mean dominant-colour share 0.242.
+
+## v30 — current scorer
 
 | run | score | turns | tokens | notes |
 |---|---|---|---|---|
-| oracle | **1.0** | — | — | harness path (`solve.sh` → `judge.py`) |
-| correct multiset, shuffled | 0.33 | — | — | order matters |
-| single most-common token ×N | 0.11 | — | — | |
-| actions right, all targets "stone" | 0.16 | — | — | |
+| oracle | **1.0000** | — | — | harness path (`solve.sh` → `judge.py`); ledger 1.0, weapon 1.0 |
+| correct multiset, shuffled | 0.2306 | — | — | order sensitivity, not a shortcut (see below) |
+| single most-common token ×N | 0.0685 | — | — | genuine shortcut — under the 0.15 bar |
+| actions right, all targets "stone" | 0.0240 | — | — | genuine shortcut — under the 0.15 bar |
 | empty | 0.0 | — | — | |
-| **Codex `gpt-5.6-sol` (xhigh)** | **0.4197** | **74** | 4,692,528 | ledger 0.380, weapon 0.643 |
+| **Codex `gpt-5.6-sol` (xhigh)** | _running_ | | | fresh run on v30, 2.5 h budget |
 | Antigravity (Gemini‑3.x) | _to run_ | | | |
 | Claude Code (Fable 5 / Opus 4.8) | _to run_ | | | |
+
+## Scorer correction found in v30 calibration
+
+The weapon sub-score was an independent LCS-F1 over the kill-weapon sequence. With only **two**
+weapon classes that stays high no matter how wrong the ledger is, so it handed out credit nobody
+earned:
+
+| ablation | ledger | weapon (old) | reward (old) | weapon (new) | reward (new) |
+|---|---|---|---|---|---|
+| actions right, targets "stone" | 0.028 | **1.000** | 0.174 | 0.000 | **0.024** |
+| correct multiset, shuffled | 0.242 | 0.722 | 0.314 | 0.167 | **0.231** |
+| oracle | 1.000 | 1.000 | 1.000 | 1.000 | **1.000** |
+
+Weapon credit is now granted only on kill events inside the ledger's LCS alignment — the weapon of a
+kill you never identified is meaningless. The oracle is unaffected, and both genuine shortcuts fall
+under the family's 0.15 bar.
+
+**On the shuffled row (0.231):** this is reported as a property, not a failed bar. Reproducing the
+exact multiset of 248 events requires watching the whole video; it is most of the work, not a way
+around it. The order-aware metric is deliberately generous to a right-but-misordered answer.
+
+## v23 — previous scorer (NOT comparable)
+
+Media was 843 s / 237 events, and the weapon component was scored independently.
+
+| run | score | turns | tokens | notes |
+|---|---|---|---|---|
+| oracle | 1.0 | — | — | |
+| **Codex `gpt-5.6-sol` (xhigh)** | 0.4197 | 74 | 4,692,528 | ledger 0.380, weapon 0.643 |
+
+That 0.4197 is **not** re-scored under the v30 scorer and must not be: the rollout was produced
+against a different video and different ground truth, so a rescore would be a number about nothing.
+A fresh run is the only honest comparison. (An earlier kart calibration made exactly this mistake —
+a rescored rollout reported 0.066 when the targeted run scored 0.335.)
 
 Config: `codex exec --dangerously-bypass-approvals-and-sandbox`, Codex CLI v0.145.0,
 `model = gpt-5.6-sol`, `model_reasoning_effort = xhigh`, ffmpeg/ffprobe on PATH.
