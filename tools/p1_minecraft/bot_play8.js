@@ -485,8 +485,23 @@ bot.once('spawn', async () => {
     const dot = (d.x*f.x + d.y*f.y + d.z*f.z) / (dist || 1);
     return Math.acos(Math.max(-1, Math.min(1, dot))) < 55 * Math.PI / 180;
   }
+  // Natural terrain that must never sit ON TOP of a block we are placing: a placed block with grass
+  // or a leaf directly above it looks tucked under an overhang and is hard to read. Clear it first.
+  const OVERHEAD = new Set(['grass_block','dirt','coarse_dirt','podzol','grass','tall_grass','short_grass',
+    'fern','large_fern','snow','snow_block','sand','red_sand','gravel','clay','moss_block','dead_bush',
+    'oak_leaves','birch_leaves','spruce_leaves','jungle_leaves','acacia_leaves','dark_oak_leaves',
+    'oak_log','birch_log','spruce_log','jungle_log','acacia_log','dark_oak_log','poppy','dandelion','vine']);
+  async function clearAbove(x, y, z) {
+    for (const dy of [1, 2, 3]) {
+      const a = bot.blockAt(new Vec3(x, y + dy, z));
+      if (a && OVERHEAD.has(a.name)) bot.chat(`/setblock ${x} ${y + dy} ${z} air`);
+    }
+    await sleep(50);
+  }
+
   async function placeVisible(x, y, z, block, cx, cz) {
     const t = new Vec3(x + 0.5, y + 0.5, z + 0.5);
+    await clearAbove(x, y, z);                  // no grass/overhang tucked above the placed block
     await backOff(t, 3.0);                     // don't stand on top of what we are building
     await lookAtLow(t, 0.0);
     // Reposition when the block is not yet cleanly visible — cone OR occluded — so a block behind an
@@ -606,37 +621,74 @@ bot.once('spawn', async () => {
   }
 
 
+  // Place a batch of blocks as ONE natural run: stand at a fixed vantage on `faceDir` side of the
+  // structure, then place the blocks in screen-left-to-right, bottom-to-top order from that view.
+  // This fixes two unnatural artifacts: (a) the fill direction matching the camera (a row placed
+  // left-to-right in the world used to read right-to-left when placeVisible put the camera on the far
+  // side per block), and (b) each block cleared of anything overhead. The camera stays on one side
+  // for the whole element, so it reads like a person building a wall while looking at it.
+  async function placeRun(blocks, faceDir, cx, cz) {
+    const [fx, fz] = faceDir;
+    const half = 2.5;
+    const vx = Math.floor(cx + fx * (half + 4)), vz = Math.floor(cz + fz * (half + 4));
+    const surf = surfaceOf(vx, vz);
+    if (surf) { bot.chat(`/tp Builder ${vx + 0.5} ${surf.position.y + 1} ${vz + 0.5}`); await sleep(700); await lookAtLow(new Vec3(cx, blocks[0] ? blocks[0].y + 0.5 : 64, cz), 0.0); }
+    // screen-right for a camera at the vantage looking back at the centre (view dir = -faceDir):
+    // right = (-faceDir) x up = (fz, 0, -fx)
+    const rx = fz, rz = -fx;
+    blocks.sort((a, b) => {
+      const sa = (a.x - cx) * rx + (a.z - cz) * rz, sb = (b.x - cx) * rx + (b.z - cz) * rz;
+      if (Math.abs(sa - sb) > 0.01) return sa - sb;   // left -> right on screen
+      return a.y - b.y;                                // then bottom -> top
+    });
+    for (const bl of blocks) await placeVisible(bl.x, bl.y, bl.z, bl.b, cx, cz);
+  }
+
   async function buildHouse() {
     await moveToOpenSite(8);
     const q = bot.entity.position.floored(); const X=q.x+2, Y=q.y, Z=q.z;
     const CX = X + 2.5, CZ = Z + 2.5;
     const P=(x,y,z,b)=>placeVisible(x,y,z,b,CX,CZ);
     await lookYaw(0);
-    // A proper 5x5, THREE-high cottage with a peaked roof — bigger and more house-like than
-    // the old 4x4 box, so the build reads as real construction and runs longer on camera.
-    // Materials alternate within each layer so a long run of one block can't be guessed blind.
     const S=5;
-    for(let dx=0;dx<S;dx++)for(let dz=0;dz<S;dz++)                              // 25 floor
-      await P(X+dx,Y-1,Z+dz, ['stone_bricks','cobblestone','andesite','stone'][(dx+2*dz)%4]);
-    // four near-identical plank tones instead of three obvious ones
+    const floorMat = (dx,dz)=>['stone_bricks','cobblestone','andesite','stone'][(dx+2*dz)%4];
     const timber=['birch_planks','oak_planks','spruce_planks','jungle_planks'];
-    for(let h=0;h<3;h++)for(let dx=0;dx<S;dx++)for(let dz=0;dz<S;dz++){         // 3-high walls
-      if(dx===0||dx===S-1||dz===0||dz===S-1){
-        if(dx===2&&dz===0&&h<2) continue;                                       // doorway
-        const corner=(dx===0||dx===S-1)&&(dz===0||dz===S-1);
-        const b = corner ? 'oak_log'
-              : (h===1&&(dx===2||dz===2) ? 'glass'                              // windows
-              : timber[(dx+2*dz+h)%3]);
-        await P(X+dx,Y+h,Z+dz,b);
+    // Floor as one run, viewed from the south, filling left->right.
+    const floor=[]; for(let dx=0;dx<S;dx++)for(let dz=0;dz<S;dz++) floor.push({x:X+dx,y:Y-1,z:Z+dz,b:floorMat(dx,dz)});
+    await placeRun(floor, [0,1], CX, CZ);
+    // Each of the four walls as its own run, viewed from OUTSIDE that wall so the camera faces the
+    // blocks head-on and the row fills left->right. A cell is placed by whichever wall reaches it
+    // first (corners belong to one run only).
+    const done = new Set();
+    const wallBlock=(dx,dz,h)=>{
+      const corner=(dx===0||dx===S-1)&&(dz===0||dz===S-1);
+      return corner ? 'oak_log' : (h===1&&(dx===2||dz===2) ? 'glass' : timber[(dx+2*dz+h)%3]);
+    };
+    const edges = [
+      { face:[0,-1], cells:()=>{const c=[];for(let dx=0;dx<S;dx++)for(let h=0;h<3;h++){if(dx===2&&h<2)continue;c.push([dx,0,h]);}return c;} },   // north wall (dz=0), doorway gap
+      { face:[0, 1], cells:()=>{const c=[];for(let dx=0;dx<S;dx++)for(let h=0;h<3;h++)c.push([dx,S-1,h]);return c;} },                              // south wall
+      { face:[-1,0], cells:()=>{const c=[];for(let dz=0;dz<S;dz++)for(let h=0;h<3;h++)c.push([0,dz,h]);return c;} },                                // west wall
+      { face:[ 1,0], cells:()=>{const c=[];for(let dz=0;dz<S;dz++)for(let h=0;h<3;h++)c.push([S-1,dz,h]);return c;} },                               // east wall
+    ];
+    for(const e of edges){
+      const run=[];
+      for(const [dx,dz,h] of e.cells()){
+        const key=dx+','+dz+','+h; if(done.has(key)) continue; done.add(key);
+        run.push({x:X+dx,y:Y+h,z:Z+dz,b:wallBlock(dx,dz,h)});
       }
+      if(run.length) await placeRun(run, e.face, CX, CZ);
     }
     await P(X+2,Y,Z,'oak_door');
-    // gable roof: two stepped slopes of stairs meeting at a ridge
+    // gable roof as two runs (each slope viewed from its own side), ridge last.
+    const roofW=[], roofE=[], ridge=[];
     for(let dz=0;dz<S;dz++){
-      await P(X+0,Y+3,Z+dz,'oak_stairs'); await P(X+S-1,Y+3,Z+dz,'oak_stairs');
-      await P(X+1,Y+4,Z+dz,'oak_stairs'); await P(X+S-2,Y+4,Z+dz,'oak_stairs');
-      await P(X+2,Y+5,Z+dz,'oak_planks');                                       // ridge
+      roofW.push({x:X+0,y:Y+3,z:Z+dz,b:'oak_stairs'}); roofW.push({x:X+1,y:Y+4,z:Z+dz,b:'oak_stairs'});
+      roofE.push({x:X+S-1,y:Y+3,z:Z+dz,b:'oak_stairs'}); roofE.push({x:X+S-2,y:Y+4,z:Z+dz,b:'oak_stairs'});
+      ridge.push({x:X+2,y:Y+5,z:Z+dz,b:'oak_planks'});
     }
+    await placeRun(roofW, [-1,0], CX, CZ);
+    await placeRun(roofE, [ 1,0], CX, CZ);
+    await placeRun(ridge, [0,1], CX, CZ);
     await P(X+4,Y+3,Z+1,'cobblestone'); await P(X+4,Y+4,Z+1,'cobblestone');     // chimney
     await P(X+2,Y,Z+2,'torch'); await P(X+2,Y+2,Z+2,'torch');
     for(let dx=0;dx<3;dx++) await P(X+dx,Y,Z-2,'oak_fence');                    // garden fence
