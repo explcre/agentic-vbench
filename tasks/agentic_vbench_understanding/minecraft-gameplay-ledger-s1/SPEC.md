@@ -44,10 +44,10 @@ anti_shortcut:
 
 input:
   url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game.mp4
-  sha256: 68123ca9fa5a4d91f566aa7697d7e63b28aa64e9c89631e11ee518cc396136ba
-  length_min: 13.0
+  sha256: 3a13a316c8102189a57290d748629a2a9ba5c3bc9754100fc3648092cf330e52
+  length_min: 14.0
   resolution: 720
-  contents: 198 events (76 mine, 98 place, 24 kill); 39 distinct block/mob types;
+  contents: 237 events (86 mine, 132 place, 19 kill); 44 distinct block/mob types;
             biomes forest, beach, desert, snowy tundra, jungle, plains, savanna, badlands;
             3 structures built on camera (cabin, well, watchtower); a staircase mine.
 ```
@@ -68,7 +68,10 @@ input:
   vanilla geometry — GUI scale 3, hotbar at x=centre-91 and y=height-22, hearts at y=-39,
   XP at y=-32. The highlighted slot tracks the item the player actually held at that moment,
   from the bot's own held-item timeline, so the weapon component is answerable rather than
-  guessable.
+  guessable. The held item is also drawn first-person in the lower right, and two effects the
+  renderer omits are composited back from the event log: the vanilla block-break crack grows
+  over each dig, and a red hit-flash marks each kill (timing exact; placement centre-anchored
+  because the camera is aimed at the target when it acts).
 
 ## Fairness constraints enforced during generation
 
