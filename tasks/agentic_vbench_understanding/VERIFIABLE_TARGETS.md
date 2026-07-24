@@ -43,13 +43,13 @@ verified on-camera during generation.
 
 ## kart-race-telemetry-ledger-s1  — SuperTuxKart race outcomes
 
-**Detects:** per race, the finishing order and each kart's powerup pickups.
+**Detects:** per race, how many powerup boxes each kart collected.
 
 ```json
 {"races": [
   {"track": "hacienda", "karts": [
-    {"kart": "amanda", "finish_position": 1, "items_collected": 17},
-    {"kart": "tux",    "finish_position": 2, "items_collected": 10}
+    {"kart": "amanda", "items_collected": 17},
+    {"kart": "tux",    "items_collected": 10}
   ]}
 ]}
 ```
@@ -57,13 +57,17 @@ verified on-camera during generation.
 | field | values | evidence in video |
 |---|---|---|
 | `kart` | character name, closed set of 18 | on-track character + ranking-column icon |
-| `finish_position` | 1..6 | ranking column + minimap over the whole race |
-| `items_collected` | int | kart drives through a question-mark box |
-| `track` | string, optional, **not scored** | scene / start-grid |
+| `items_collected` | int — **the only scored field** | kart drives through a question-mark box |
+| `nitro_collected`, `finish_position`, `start_position`, `track` | optional, **not scored** | see below |
 
-**Metric:** `reward = 0.70 · tau(finish order) + 0.30 · tau(items order)`, Kendall tau over
-kart pairs clamped at 0, averaged over 4 races. Guessing → 0 in expectation. Oracle 1.0;
-blind 0.15; grid-only 0.11. Karts matched by name; ground-truth ties excluded from tau.
+**Metric:** `reward = max(0, mean_races[tau(items_collected)])`, signed Kendall tau over kart
+pairs aggregated then clamped once. Guessing → 0 in expectation. Karts matched by name;
+ground-truth ties excluded from tau.
+
+**Why only this field is scored** — calibration showed the others are readable rather than
+counted: the ranking column and starting grid *display* finish and start (Codex tau 0.75 / 0.90),
+and nitro *use* shows as boost flames (tau ~0.32 vs ~0.07 on items). Only the powerup-box count
+has no on-screen proxy. Details in that task's `SPEC.md` and `calibration/scores.md`.
 
 ---
 
