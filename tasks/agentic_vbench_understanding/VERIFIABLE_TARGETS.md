@@ -41,7 +41,12 @@ verified on-camera during generation.
 
 ---
 
-## kart-race-telemetry-ledger-s1  — SuperTuxKart race outcomes
+## kart-race-telemetry-ledger-s1  — SuperTuxKart powerup counting
+> **Authoritative copy lives on branch `pengchx-kart-race-telemetry`, not here.** That branch is
+> the focused contribution (task only, cut from `main`) and is the single source of truth for the
+> kart task; this section is a summary that may lag it. The task directory was deliberately
+> removed from this branch so the two copies cannot drift — it had already fallen two scorer
+> generations behind once.
 
 **Detects:** per race, how many powerup boxes each kart collected.
 
