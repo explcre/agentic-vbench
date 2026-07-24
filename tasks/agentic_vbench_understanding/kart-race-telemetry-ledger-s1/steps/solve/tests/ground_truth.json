@@ -1,0 +1,193 @@
+{
+  "n_races": 4,
+  "races": [
+    {
+      "track": "hacienda",
+      "karts": [
+        {
+          "kart": "beastie",
+          "start_position": 5,
+          "finish_position": 1,
+          "items_collected": 17,
+          "time_s": 178.954
+        },
+        {
+          "kart": "amanda",
+          "start_position": 4,
+          "finish_position": 2,
+          "items_collected": 15,
+          "time_s": 182.905
+        },
+        {
+          "kart": "kiki",
+          "start_position": 6,
+          "finish_position": 3,
+          "items_collected": 22,
+          "time_s": 185.281
+        },
+        {
+          "kart": "gnu",
+          "start_position": 2,
+          "finish_position": 4,
+          "items_collected": 17,
+          "time_s": 187.404
+        },
+        {
+          "kart": "adiumy",
+          "start_position": 3,
+          "finish_position": 5,
+          "items_collected": 16,
+          "time_s": 191.163
+        },
+        {
+          "kart": "tux",
+          "start_position": 1,
+          "finish_position": 6,
+          "items_collected": 19,
+          "time_s": 191.724
+        }
+      ]
+    },
+    {
+      "track": "snowmountain",
+      "karts": [
+        {
+          "kart": "wilber",
+          "start_position": 5,
+          "finish_position": 1,
+          "items_collected": 19,
+          "time_s": 161.128
+        },
+        {
+          "kart": "xue",
+          "start_position": 6,
+          "finish_position": 2,
+          "items_collected": 16,
+          "time_s": 166.395
+        },
+        {
+          "kart": "puffy",
+          "start_position": 3,
+          "finish_position": 3,
+          "items_collected": 6,
+          "time_s": 170.806
+        },
+        {
+          "kart": "pidgin",
+          "start_position": 1,
+          "finish_position": 4,
+          "items_collected": 7,
+          "time_s": 174.539
+        },
+        {
+          "kart": "konqi",
+          "start_position": 2,
+          "finish_position": 5,
+          "items_collected": 11,
+          "time_s": 174.565
+        },
+        {
+          "kart": "hexley",
+          "start_position": 4,
+          "finish_position": 6,
+          "items_collected": 12,
+          "time_s": 177.298
+        }
+      ]
+    },
+    {
+      "track": "lighthouse",
+      "karts": [
+        {
+          "kart": "sara_the_wizard",
+          "start_position": 6,
+          "finish_position": 1,
+          "items_collected": 10,
+          "time_s": 125.522
+        },
+        {
+          "kart": "nolok",
+          "start_position": 3,
+          "finish_position": 2,
+          "items_collected": 11,
+          "time_s": 129.741
+        },
+        {
+          "kart": "emule",
+          "start_position": 1,
+          "finish_position": 3,
+          "items_collected": 13,
+          "time_s": 132.825
+        },
+        {
+          "kart": "suzanne",
+          "start_position": 4,
+          "finish_position": 4,
+          "items_collected": 12,
+          "time_s": 137.998
+        },
+        {
+          "kart": "gavroche",
+          "start_position": 2,
+          "finish_position": 5,
+          "items_collected": 8,
+          "time_s": 139.583
+        },
+        {
+          "kart": "sara_the_racer",
+          "start_position": 5,
+          "finish_position": 6,
+          "items_collected": 10,
+          "time_s": 143.93
+        }
+      ]
+    },
+    {
+      "track": "cornfield_crossing",
+      "karts": [
+        {
+          "kart": "konqi",
+          "start_position": 2,
+          "finish_position": 1,
+          "items_collected": 7,
+          "time_s": 201.907
+        },
+        {
+          "kart": "nolok",
+          "start_position": 3,
+          "finish_position": 2,
+          "items_collected": 4,
+          "time_s": 203.953
+        },
+        {
+          "kart": "tux",
+          "start_position": 1,
+          "finish_position": 3,
+          "items_collected": 8,
+          "time_s": 204.639
+        },
+        {
+          "kart": "amanda",
+          "start_position": 4,
+          "finish_position": 4,
+          "items_collected": 4,
+          "time_s": 206.012
+        },
+        {
+          "kart": "puffy",
+          "start_position": 6,
+          "finish_position": 5,
+          "items_collected": 4,
+          "time_s": 208.191
+        },
+        {
+          "kart": "wilber",
+          "start_position": 5,
+          "finish_position": 6,
+          "items_collected": 4,
+          "time_s": 212.517
+        }
+      ]
+    }
+  ]
+}
