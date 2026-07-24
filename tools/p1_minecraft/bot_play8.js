@@ -747,6 +747,11 @@ bot.once('spawn', async () => {
         try{ await bot.dig(o); rec('mine',o.name); }catch(_){}
       }
     }
+    // Climb back to the surface before the phase's closing survey. Ending the session deep in the
+    // shaft made the last ~12 s frame a single tunnel-wall block (100% one-block frames on the
+    // tail); returning to open ground gives an informative final shot instead.
+    const su = surfaceOf(q.x, q.z);
+    if (su) { bot.chat(`/tp Builder ${q.x + 0.5} ${su.position.y + 1} ${q.z + 0.5}`); await sleep(900); await lookYaw(0); }
     log('MINE_DONE');
   }
 
