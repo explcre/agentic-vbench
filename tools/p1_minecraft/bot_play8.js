@@ -93,6 +93,34 @@ bot.once('spawn', async () => {
   };
   async function equip(name){ try{ const it=bot.inventory.items().find(i=>i.name===name); if(it) await bot.equip(it,'hand'); recHeld(name); }catch(e){log('equip '+e.message);} }
 
+  const TAN_MIN_DOWN = 0.18;   // ~10 degrees below the horizon — keeps the ground, not sky, in frame
+  // Single eased turn primitive. Every camera aim in the session routes through here, so nothing
+  // snaps: a hard `bot.lookAt(v, true)` jump was the main thing that read as "not a real player".
+  // The turn accelerates and settles with a cosine ease-in-out, and the step count scales with the
+  // angular distance — a small correction is a quick nudge, a full turn is a slow sweep. Fully
+  // deterministic (no wall-clock, fixed steps for a given angle), so it never touches the ledger.
+  async function turnTo(yaw, pitch, dur=520) {
+    const y0 = bot.entity.yaw, p0 = bot.entity.pitch;
+    let dyaw = yaw - y0; while (dyaw > Math.PI) dyaw -= 2*Math.PI; while (dyaw < -Math.PI) dyaw += 2*Math.PI;
+    const dpitch = pitch - p0;
+    const ang = Math.hypot(dyaw, dpitch);
+    if (ang < 0.02) { try { await bot.look(yaw, pitch, true); } catch(_){} return; }
+    const steps = Math.max(3, Math.min(30, Math.round(ang / 0.08)));
+    for (let k = 1; k <= steps; k++) {
+      const e = 0.5 - 0.5*Math.cos(Math.PI * k/steps);           // ease-in-out 0..1
+      try { await bot.look(y0 + dyaw*e, p0 + dpitch*e, true); } catch(_){}
+      await sleep(Math.max(16, Math.round(dur/steps)));
+    }
+  }
+  // Yaw/pitch that aim the eye at `pos`, optionally clamped below the horizon so the frame keeps
+  // the ground rather than pitching up into empty sky.
+  function aimFor(pos, dy=0.4, clampDown=true) {
+    const b = bot.entity.position, eye = b.y + 1.62;
+    const p = pos.offset(0, dy, 0);
+    const hd = Math.max(1.0, Math.hypot(p.x - b.x, p.z - b.z));
+    const ty = clampDown ? Math.min(p.y, eye - TAN_MIN_DOWN*hd) : p.y;
+    return { yaw: Math.atan2(-(p.x - b.x), (p.z - b.z)), pitch: Math.atan2(ty - eye, hd) };
+  }
   // Look slightly downward at the horizon in a given yaw — keeps the ground in frame.
   async function lookYaw(yaw) {
     const p = bot.entity.position;
@@ -100,7 +128,8 @@ bot.once('spawn', async () => {
     const s = surfaceOf(Math.floor(ax), Math.floor(az));           // terrain height ahead
     const eye = p.y + 1.62;
     const ty = Math.min(s ? s.position.y + 1.0 : eye - 1.2, eye - 0.18*6);
-    try { await bot.lookAt(new Vec3(ax, ty, az), true); } catch(_){}
+    const { yaw: wy, pitch: wp } = aimFor(new Vec3(ax, ty, az), 0, false);
+    await turnTo(wy, wp, 620);
   }
   // A player-like survey pan: slow rotation with the ground in frame. Also paces the video.
   async function survey(steps=6, ms=700) {
@@ -145,12 +174,9 @@ bot.once('spawn', async () => {
   // Look at an entity/block WITHOUT pitching up into empty sky: a mob standing on higher
   // ground would otherwise fill the frame with nothing but blue (a quarter of the v13
   // sample frames were sky for exactly this reason).
-  const TAN_MIN_DOWN = 0.18;   // ~10 degrees
   async function lookAtLow(pos, dy=0.4) {
-    const b = bot.entity.position, eye = b.y + 1.62;
-    const p = pos.offset(0, dy, 0);
-    const hd = Math.max(1.0, Math.hypot(p.x - b.x, p.z - b.z));
-    try { await bot.lookAt(new Vec3(p.x, Math.min(p.y, eye - TAN_MIN_DOWN*hd), p.z), true); } catch(_){}
+    const { yaw, pitch } = aimFor(pos, dy, true);
+    await turnTo(yaw, pitch, 480);
   }
   // Back away if the pathfinder parked us right on top of the target — a frame filled with
   // one block texture carries no information.
@@ -163,22 +189,11 @@ bot.once('spawn', async () => {
   }
 
 
-  // Turn the view to a target in small steps instead of snapping — the sudden camera jumps
-  // were the main thing that read as "not a real player". Deterministic (fixed step count),
-  // so it does not affect the ledger.
+  // Kept for its call sites; now a thin eased wrapper. The `steps` argument becomes a duration hint
+  // (more requested steps -> a longer, gentler turn) but the actual pacing is turnTo's ease-in-out.
   async function smoothLookAt(target, dy=0.4, steps=6) {
-    const b = bot.entity.position, eye = b.y + 1.62;
-    const p = target.offset(0, dy, 0);
-    const hd = Math.max(1.0, Math.hypot(p.x - b.x, p.z - b.z));
-    const ty = Math.min(p.y, eye - 0.18 * hd);
-    const wantYaw = Math.atan2(-(p.x - b.x), (p.z - b.z));
-    const wantPitch = Math.atan2(ty - eye, hd);
-    let y0 = bot.entity.yaw, p0 = bot.entity.pitch;
-    let dyaw = wantYaw - y0; while (dyaw > Math.PI) dyaw -= 2*Math.PI; while (dyaw < -Math.PI) dyaw += 2*Math.PI;
-    for (let k = 1; k <= steps; k++) {
-      try { await bot.look(y0 + dyaw*k/steps, p0 + (wantPitch - p0)*k/steps, true); } catch(_){}
-      await sleep(60);
-    }
+    const { yaw, pitch } = aimFor(target, dy, true);
+    await turnTo(yaw, pitch, Math.max(360, steps * 110));
   }
 
 
@@ -695,7 +710,13 @@ bot.once('spawn', async () => {
   while (!fs.existsSync(GO)) await sleep(200);
   T0 = Date.now();   // t=0 of the ledger; the capture side records its own GO offset
   const only = (process.env.P1_PHASES||'').split(',').filter(Boolean);
-  const phase = async (n,f)=>{ if(only.length && !only.includes(n)){ log('PHASE-SKIP '+n); return; } log('PHASE '+n); try{await f();}catch(e){log('PHASE-ERR '+n+' '+e.message);} };
+  // Match P1_PHASES against the BASE name: phases on laps 2+ are prefixed ('lap2_forest'), and
+  // comparing the prefixed name would silently skip every phase of every extra lap.
+  const phase = async (n,f)=>{ const base = n.replace(/^lap\d+_/, '');
+    if(only.length && !only.includes(base)){ log('PHASE-SKIP '+n); return; }
+    log('PHASE '+n); try{await f();}catch(e){log('PHASE-ERR '+n+' '+e.message);} };
+
+  const LAPS = Math.max(1, parseInt(process.env.P1_LAPS || '1', 10));
 
   // Start in a fresh forest (the shared dev world has old builds near spawn).
   await phase('start', async()=>{
@@ -705,40 +726,44 @@ bot.once('spawn', async () => {
   // Mob roster: ONLY mobs this renderer actually draws (audited 2026-07-22 —
   // see MOB_RENDER_AUDIT.md). Hostiles, villagers, foxes, rabbits, horses and llamas are
   // invisible here, so scoring a kill on them would be unfair; they are excluded.
-  await phase('forest', async()=>{ await gatherCategory('wood',4); await gatherCategory('leaves',3);
-    await huntMelee('cow'); await huntMelee('pig'); await huntMelee('sheep'); await survey(4,600); });
-  await phase('build_village', async()=>{
-    // build on open terrain, not among the trees we were just chopping
-    if(!await tpToBiome('plains')) await tpToBiome('savanna');
-    await survey(4,500);
-    await buildHouse();
-    bot.chat('/summon minecraft:iron_golem ~ ~1 ~5'); await sleep(1500);   // village guardian
-    await survey(6,700); });
-  await phase('combat_showcase', async()=>{ await huntMelee('chicken'); await huntBow('cow');
-    await huntMelee('wolf'); await huntBow('pig'); await gatherCategory('grass',3); });
-  await phase('beach', async()=>{ if(await tpToBiome('beach')){ await survey(6,600);
-    await gatherCategory('sand',4,120); await gatherCategory('grass',2,120);
-    await huntMelee('turtle'); await boatRide(); await huntBow('cow'); await huntMelee('pig'); } });
-  await phase('desert', async()=>{ if(await tpToBiome('desert')){ await survey(6,600);
-    await gatherCategory('sand',4,120); await gatherCategory('cactus',2,120); await gatherCategory('sandstone',3,120);
-    await huntMelee('sheep'); await huntBow('chicken'); } });
-  await phase('snowy', async()=>{ if(await tpToBiome('snowy_tundra')){ await survey(6,600);
-    await gatherCategory('snow',4,120); await gatherCategory('ice',2,120);
-    await huntBow('cow'); await huntMelee('pig'); await huntMelee('mooshroom'); } });
-  await phase('jungle', async()=>{ if(await tpToBiome('jungle')){ await survey(6,600);
-    await gatherCategory('wood',4,120); await gatherCategory('leaves',3,120);
-    await huntMelee('panda'); await huntBow('mooshroom'); } });
-  await phase('plains', async()=>{ if(await tpToBiome('plains')){ await survey(6,600);
-    await gatherCategory('grass',3,120); await gatherCategory('wood',3,120);
-    await buildWell();
-    await huntBow('polar_bear'); await huntMelee('pig'); await huntMelee('chicken'); } });
-  await phase('savanna', async()=>{ if(await tpToBiome('savanna')){ await survey(6,600);
-    await gatherCategory('wood',3,140); await gatherCategory('grass',3,140);
-    await huntMelee('cow'); await huntBow('sheep'); await huntMelee('mooshroom'); } });
-  await phase('badlands', async()=>{ if(await tpToBiome('badlands')){ await survey(6,600);
-    await gatherCategory('redsand',4,160); await gatherCategory('terracotta',4,160);
-    await buildTower();
-    await huntMelee('mooshroom'); await huntBow('sheep'); } });
+  for (let lap = 0; lap < LAPS; lap++) {
+    const L = lap === 0 ? '' : 'lap' + (lap + 1) + '_';
+    log('LAP ' + (lap + 1) + '/' + LAPS);
+    await phase(L + 'forest', async()=>{ await gatherCategory('wood',4); await gatherCategory('leaves',3);
+      await huntMelee('cow'); await huntMelee('pig'); await huntMelee('sheep'); await survey(4,600); });
+    await phase(L + 'build_village', async()=>{
+      // build on open terrain, not among the trees we were just chopping
+      if(!await tpToBiome('plains')) await tpToBiome('savanna');
+      await survey(4,500);
+      await buildHouse();
+      bot.chat('/summon minecraft:iron_golem ~ ~1 ~5'); await sleep(1500);   // village guardian
+      await survey(6,700); });
+    await phase(L + 'combat_showcase', async()=>{ await huntMelee('chicken'); await huntBow('cow');
+      await huntMelee('wolf'); await huntBow('pig'); await gatherCategory('grass',3); });
+    await phase(L + 'beach', async()=>{ if(await tpToBiome('beach')){ await survey(6,600);
+      await gatherCategory('sand',4,120); await gatherCategory('grass',2,120);
+      await huntMelee('turtle'); await boatRide(); await huntBow('cow'); await huntMelee('pig'); } });
+    await phase(L + 'desert', async()=>{ if(await tpToBiome('desert')){ await survey(6,600);
+      await gatherCategory('sand',4,120); await gatherCategory('cactus',2,120); await gatherCategory('sandstone',3,120);
+      await huntMelee('sheep'); await huntBow('chicken'); } });
+    await phase(L + 'snowy', async()=>{ if(await tpToBiome('snowy_tundra')){ await survey(6,600);
+      await gatherCategory('snow',4,120); await gatherCategory('ice',2,120);
+      await huntBow('cow'); await huntMelee('pig'); await huntMelee('mooshroom'); } });
+    await phase(L + 'jungle', async()=>{ if(await tpToBiome('jungle')){ await survey(6,600);
+      await gatherCategory('wood',4,120); await gatherCategory('leaves',3,120);
+      await huntMelee('panda'); await huntBow('mooshroom'); } });
+    await phase(L + 'plains', async()=>{ if(await tpToBiome('plains')){ await survey(6,600);
+      await gatherCategory('grass',3,120); await gatherCategory('wood',3,120);
+      await buildWell();
+      await huntBow('polar_bear'); await huntMelee('pig'); await huntMelee('chicken'); } });
+    await phase(L + 'savanna', async()=>{ if(await tpToBiome('savanna')){ await survey(6,600);
+      await gatherCategory('wood',3,140); await gatherCategory('grass',3,140);
+      await huntMelee('cow'); await huntBow('sheep'); await huntMelee('mooshroom'); } });
+    await phase(L + 'badlands', async()=>{ if(await tpToBiome('badlands')){ await survey(6,600);
+      await gatherCategory('redsand',4,160); await gatherCategory('terracotta',4,160);
+      await buildTower();
+      await huntMelee('mooshroom'); await huntBow('sheep'); } });
+  }
   await phase('mine', async()=>{ await digMine(); await survey(4,700); });
 
   await sleep(1200); log('PLAY_DONE '+events.length); fs.writeFileSync(DONE, String(events.length));
