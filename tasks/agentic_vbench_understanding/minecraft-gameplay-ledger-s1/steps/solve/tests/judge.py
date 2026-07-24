@@ -69,6 +69,26 @@ def lcs_len(a, b):
         prev = cur
     return prev[m]
 
+def lcs_pairs(a, b):
+    """Matched (i, j) index pairs of one longest common subsequence of a and b."""
+    n, m = len(a), len(b)
+    if n == 0 or m == 0: return []
+    tbl = [[0]*(m+1) for _ in range(n+1)]
+    for i in range(1, n+1):
+        ai = a[i-1]
+        row, prev = tbl[i], tbl[i-1]
+        for j in range(1, m+1):
+            row[j] = prev[j-1]+1 if ai == b[j-1] else (prev[j] if prev[j] >= row[j-1] else row[j-1])
+    out, i, j = [], n, m
+    while i > 0 and j > 0:
+        if a[i-1] == b[j-1] and tbl[i][j] == tbl[i-1][j-1]+1:
+            out.append((i-1, j-1)); i -= 1; j -= 1
+        elif tbl[i-1][j] >= tbl[i][j-1]:
+            i -= 1
+        else:
+            j -= 1
+    return out[::-1]
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--solution", required=True, type=Path)
@@ -77,23 +97,36 @@ def main():
     a = ap.parse_args()
     gt_raw = json.loads(GT_PATH.read_text())["events"]
     gt = [token(e) for e in gt_raw]; gt_w = weapon_seq(gt_raw)
-    reason = "ok"; preds = []; pred_w = []
+    reason = "ok"; preds = []; pred_raw = []; pred_w = []
     try:
         raw = json.loads(a.solution.read_text()).get("events", [])
         if not isinstance(raw, list): raise ValueError("events not a list")
-        preds = [token(e) for e in raw if isinstance(e, dict)]
+        pred_raw = [e for e in raw if isinstance(e, dict)]
+        preds = [token(e) for e in pred_raw]
         pred_w = weapon_seq(raw)
     except Exception as exc:  # noqa: BLE001
         reason = f"unreadable solution.json: {exc}"
     lcs = lcs_len(preds, gt); np_, ng = len(preds), len(gt)
     f1 = (2*lcs/(np_+ng)) if (np_+ng) else 0.0
-    wl = lcs_len(pred_w, gt_w); nw_p, nw_g = len(pred_w), len(gt_w)
+
+    # Weapon credit is earned only on kills the submission actually IDENTIFIED — i.e. kill events
+    # that fall inside the ledger's LCS alignment. Scoring the weapon sequence independently made it
+    # nearly free: there are only two weapon classes, so an LCS-F1 over that sequence stays high even
+    # when the ledger is wrong. Measured on v30, a submission that named every block "stone" scored
+    # ledger 0.028 yet collected weapon 1.000, lifting a useless answer to reward 0.174; shuffling
+    # the ledger still collected weapon 0.722. Neither can now claim credit it did not earn.
+    pairs = lcs_pairs(preds, gt)
+    nw_p, nw_g = len(pred_w), len(gt_w)
+    aligned = [(i, j) for (i, j) in pairs if gt[j][0] == "kill"]
+    wl = sum(1 for i, j in aligned
+             if weapon_norm(pred_raw[i].get("tool") or pred_raw[i].get("weapon") or "")
+             == weapon_norm(gt_raw[j].get("tool") or gt_raw[j].get("weapon") or ""))
     f1w = (2*wl/(nw_p+nw_g)) if (nw_p+nw_g) else 0.0
     reward = 0.85*f1 + 0.15*f1w
     det = {"reason": reason, "n_ground_truth": ng, "n_predicted": np_, "lcs": lcs,
            "ledger_f1": round(f1,4), "n_gt_kills": nw_g, "n_pred_kills": nw_p,
-           "weapon_lcs": wl, "weapon_f1": round(f1w,4),
-           "note": "reward = 0.85*LCS-F1(action,target) + 0.15*LCS-F1(kill weapons)"}
+           "aligned_kills": len(aligned), "weapon_correct": wl, "weapon_f1": round(f1w,4),
+           "note": "reward = 0.85*LCS-F1(action,target) + 0.15*weapon-F1 over LCS-aligned kills"}
     a.reward_json.parent.mkdir(parents=True, exist_ok=True)
     a.reward_json.write_text(json.dumps({"reward": round(reward,4), "details": det}, indent=2))
     a.reward_txt.write_text(f"{round(reward,4)}\n")

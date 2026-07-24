@@ -96,31 +96,6 @@ b.on("error",e=>{console.log("DIRECTOR_ERR",e.message);process.exit(1);});' >> "
 grep -q WORLD_PREPARED "$OUT/director.log" || { echo "PREFLIGHT_FAIL world not prepared"; kill $BOT $SRVPID $XVFB; exit 7; }
 tail -1 "$OUT/director.log"
 
-# A watcher that is ALREADY CONNECTED when the client joins, so the Camera is made a spectator
-# within a tick instead of after a log-poll round trip. It re-issues /spectate until the server
-# confirms, and prints SPECTATE_OK only on the confirmation — the previous version printed
-# SPECTATE_LOCKED unconditionally and hid a dead camera for a whole session.
-node -e '
-const mineflayer=require("mineflayer");
-const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
-const s=ms=>new Promise(r=>setTimeout(r,ms));
-b.once("spawn",async()=>{
-  for (let i=0;i<150;i++){
-    const cam=b.players["Camera"];
-    if (cam && cam.entity !== undefined || cam) {
-      b.chat("/gamemode spectator Camera"); await s(500);
-      b.chat("/spectate Builder Camera");   await s(900);
-      // confirm from the entity list: a spectating camera rides the bot, so its position tracks it
-      const me=b.players["Builder"] && b.players["Builder"].entity;
-      const cm=b.players["Camera"] && b.players["Camera"].entity;
-      if (me && cm && me.position.distanceTo(cm.position) < 3) { console.log("SPECTATE_OK"); process.exit(0); }
-      if (i>6 && i%4===0) console.log("spectate-retry "+i);
-    }
-    await s(1000);
-  }
-  console.log("SPECTATE_FAILED"); process.exit(9);});
-b.on("error",e=>{console.log("WATCHER_ERR",e.message);process.exit(1);});' >> "$OUT/spectate.log" 2>&1 & WATCH=$!
-
 CP=$(cat "$MC/classpath.txt"); AIDX=$(cut -d= -f2 "$MC/asset_index.txt")
 DISPLAY=:$D LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVERRIDE=3.3 \
   "$J" -Xmx3G -cp "$CP" -Djava.library.path="$MC/natives" net.minecraft.client.main.Main \
@@ -128,24 +103,63 @@ DISPLAY=:$D LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe MESA_GL_VERSION_OVER
   --uuid 00000000000000000000000000000001 --accessToken 0 --userType legacy \
   --width 1280 --height 720 --quickPlayMultiplayer 127.0.0.1:$PORT > "$OUT/client.log" 2>&1 & CLIENT=$!
 for i in $(seq 1 75); do grep -qi 'Camera joined' "$OUT/server.log" && break; sleep 4; done
-grep -qi 'Camera joined' "$OUT/server.log" || { echo "CLIENT_NEVER_JOINED"; tail -10 "$OUT/client.log"; kill $CLIENT $BOT $SRVPID $XVFB $WATCH; exit 6; }
+grep -qi 'Camera joined' "$OUT/server.log" || { echo "CLIENT_NEVER_JOINED"; tail -10 "$OUT/client.log"; kill $CLIENT $BOT $SRVPID $XVFB; exit 6; }
 echo CLIENT_JOINED
 
-wait $WATCH || true
-grep -q SPECTATE_OK "$OUT/spectate.log" || { echo "SPECTATE_FAILED"; tail -4 "$OUT/spectate.log"
+# Lock the camera to the bot, and CONFIRM it from the server's own complaint stream.
+#
+# Two things make this awkward and both were learned the hard way. (1) For a few seconds after
+# "Camera joined the game" the player entity is still 'removed' server-side, and /spectate answers
+# "Attempt to teleport removed player Camera restricted" -- so a single early attempt silently does
+# nothing. (2) A spectator is NOT transmitted to other clients as an entity, so a Director bot can
+# never see the camera's position; confirming the follow by comparing coordinates is impossible, and
+# an earlier watcher that tried spun until it gave up. Since sendCommandFeedback/logAdminCommands are
+# off (they leaked the ledger into chat), there is no success message either.
+#
+# What IS observable is the failure: mark the log, issue the commands, and read only the new bytes.
+# No complaint after the final attempt means it took.
+spectate_once() {
+  node -e '
+const mineflayer=require("mineflayer");
+const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
+const s=ms=>new Promise(r=>setTimeout(r,ms));
+b.once("spawn",async()=>{ b.chat("/gamemode spectator Camera"); await s(600);
+  b.chat("/spectate Builder Camera"); await s(900); process.exit(0);});
+b.on("error",()=>process.exit(1));' >> "$OUT/spectate.log" 2>&1 || true
+}
+SPECTATE_OK=0
+for attempt in 1 2 3 4 5; do
+  sleep 5                                  # let the login finish before poking it
+  MARK=$(wc -c < "$OUT/server.log")
+  spectate_once
+  sleep 2
+  if ! tail -c +$((MARK + 1)) "$OUT/server.log" | grep -q 'removed player'; then
+    SPECTATE_OK=1; echo "SPECTATE_OK attempt=$attempt"; break
+  fi
+  echo "spectate-retry $attempt (server still calls Camera a removed player)"
+done
+[ "$SPECTATE_OK" = "1" ] || { echo "SPECTATE_FAILED after 5 attempts"
   grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
   kill $CLIENT $BOT $SRVPID $XVFB; exit 8; }
-echo SPECTATE_OK
 
-sleep 25                                   # let chunks mesh before recording
-# The camera must be looking at the world, not at a menu or death screen. bands.py counts UI button
-# slabs; a in-world view has none, a death/pause screen has two or three.
-DISPLAY=:$D "$FF" -v error -f x11grab -video_size 1280x720 -i :$D -frames:v 1 "$OUT/precheck.png" -y
-BTN=$(/usr/bin/python3 "$TOOLS/bands.py" "$OUT/precheck.png" | grep -oE 'buttons=[0-9]+' | cut -d= -f2)
-echo "PRECHECK buttons=$BTN"
-[ "${BTN:-9}" = "0" ] || { echo "PRECHECK_FAIL the client is showing a UI screen, not the world"
+# Wait for the client to actually be showing the WORLD before recording anything. A fixed sleep is
+# not enough: under software GL, at a relocated world spawn, 25 s still left the client on the flat
+# loading-terrain screen (dominant colour share 0.66 over 12 quantised colours). screen_state.py
+# distinguishes world / ui / flat and is calibrated against a death screen and a loading screen that
+# each fooled a cruder check.
+WORLD_READY=0
+for i in $(seq 1 40); do
+  sleep 6
+  DISPLAY=:$D "$FF" -v error -f x11grab -video_size 1280x720 -i :$D -frames:v 1 "$OUT/precheck.png" -y
+  if STATE=$(/usr/bin/python3 "$TOOLS/screen_state.py" "$OUT/precheck.png"); then
+    echo "WORLD_READY after $((i*6))s — $STATE"; WORLD_READY=1; break
+  fi
+  [ $((i % 5)) = 0 ] && echo "  waiting for the world ($((i*6))s): $STATE"
+done
+[ "$WORLD_READY" = "1" ] || { echo "WORLD_NEVER_RENDERED — last state: $STATE"
   grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
   kill $CLIENT $BOT $SRVPID $XVFB; exit 10; }
+
 DISPLAY=:$D "$FF" -v error -f x11grab -framerate 15 -video_size 1280x720 -i :$D \
   -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p "$OUT/authentic.mp4" -y & CAP=$!
 sleep 2

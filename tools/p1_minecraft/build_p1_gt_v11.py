@@ -14,11 +14,33 @@ is visible immediately:
   mono      the single most common token, xN   -> should be low
   mine_only actions right, all targets 'stone' -> should be low
 """
-import json, random, subprocess, sys, tempfile
+import json, random, re, subprocess, sys, tempfile
 from pathlib import Path
 
 play = json.loads(Path(sys.argv[1]).read_text())
 task = Path(sys.argv[2])
+
+
+def check_vocabulary(events, task_dir):
+    """Every ground-truth target must appear in the instruction's closed vocabulary.
+
+    An unlisted target is silently unanswerable: the agent is told the vocabulary is closed, so it
+    cannot name a block outside it, yet the scorer still expects that token. `jungle_planks` sat in
+    the builder's timber palette for three renders without being drawn -- the unfairness was live
+    the whole time and only luck kept it out of the shipped ledger. Fail the build instead.
+    """
+    instr = (task_dir / "steps/solve/instruction.md").read_text()
+    blocks = set(re.findall(r"`([a-z_]+)`", instr.split("Blocks (mine/place):")[1]
+                                                 .split("Mobs (kill):")[0]))
+    mobs = set(re.findall(r"`([a-z_]+)`", instr.split("Mobs (kill):")[1]
+                                               .split("## How it is scored")[0]))
+    bad = sorted({e["target"] for e in events
+                  if e["target"] not in (mobs if e["action"] == "kill" else blocks)})
+    if bad:
+        sys.exit(f"VOCAB_FAIL {len(bad)} ground-truth target(s) missing from the instruction "
+                 f"vocabulary: {bad}")
+    print(f"vocab OK: {len({e['target'] for e in events})} distinct targets, "
+          f"all within {len(blocks)} blocks + {len(mobs)} mobs")
 tests = task / "steps/solve/tests"
 sol_dir = task / "steps/solve/solution"
 
@@ -26,6 +48,8 @@ events = [{k: v for k, v in e.items() if k in ("i", "action", "target", "tool")}
           for e in play["events"]]
 for i, e in enumerate(events):
     e["i"] = i
+
+check_vocabulary(events, task)
 
 gt = {"n_events": len(events), "events": events}
 (tests / "ground_truth.json").write_text(json.dumps(gt, indent=2))
