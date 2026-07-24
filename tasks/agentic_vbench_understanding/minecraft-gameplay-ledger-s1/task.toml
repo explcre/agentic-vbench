@@ -7,7 +7,7 @@ name = "agentic-vbench/minecraft-gameplay-ledger-s1"
 difficulty = "hard"
 category = "video-understanding"
 tags = ["video-understanding", "game-analysis", "minecraft", "embodied", "first-person", "event-timeline", "long-horizon", "synthetic-ground-truth", "agentic-vbench-understanding"]
-# 10.9-min FIRST-PERSON gameplay in a generated world (mineflayer bot: travel 7 biomes,
+# 13-min FIRST-PERSON gameplay in a generated world (mineflayer bot: travel 7 biomes,
 # mine, build 3 structures, fight with sword and bow). GT = the bot's own action events
 # (mine/place/kill + weapon), machine-exact order. Real-life framing: reconstruct what a
 # player/embodied agent did from first-person footage.

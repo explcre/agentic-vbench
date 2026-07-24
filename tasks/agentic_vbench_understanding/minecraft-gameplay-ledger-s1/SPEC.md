@@ -31,8 +31,8 @@ scorer:
   oracle_reward: 1.0
   null_reward: 0.0
   measured_ablations:      # same GT, deliberately wrong submissions
-    shuffled_ledger: 0.34  # right multiset, wrong order
-    single_token_xN: 0.11  # most common token repeated
+    shuffled_ledger: 0.35  # right multiset, wrong order
+    single_token_xN: 0.10  # most common token repeated
     targets_wrong: 0.16    # actions right, every target replaced by "stone"
 
 difficulty: {strong_agent_reward: TBD, tool_call_turns: TBD, agent_model: TBD}
@@ -44,10 +44,10 @@ anti_shortcut:
 
 input:
   url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game.mp4
-  sha256: 7473e52d73810f015fbdc0e39d1614b9d35ce7e2975db15ef07318f70c1172cd
-  length_min: 10.9
+  sha256: 68123ca9fa5a4d91f566aa7697d7e63b28aa64e9c89631e11ee518cc396136ba
+  length_min: 13.0
   resolution: 720
-  contents: 211 events (83 mine, 103 place, 25 kill); 44 distinct block/mob types;
+  contents: 198 events (76 mine, 98 place, 24 kill); 39 distinct block/mob types;
             biomes forest, beach, desert, snowy tundra, jungle, plains, savanna, badlands;
             3 structures built on camera (cabin, well, watchtower); a staircase mine.
 ```
@@ -62,9 +62,13 @@ input:
 - **Order-based scoring** handles the moving camera and the variable-FPS software render.
   Video time was verified to be an exact offset of event time (checked against two landmarks
   64 s apart), but order remains the scored quantity.
-- **The HUD is evidence, not decoration.** The composited hotbar highlights the slot the
-  player actually held at that moment, driven by the bot's own held-item timeline, so the
-  weapon component is answerable from the video rather than guessable.
+- **The HUD is the real game HUD, and it is evidence.** It is composited from the actual
+  Minecraft GUI sprites shipped with prismarine-viewer (`gui/widgets.png` hotbar and
+  selector, `gui/icons.png` hearts / hunger / XP bar, the real 16x16 item textures) at
+  vanilla geometry — GUI scale 3, hotbar at x=centre-91 and y=height-22, hearts at y=-39,
+  XP at y=-32. The highlighted slot tracks the item the player actually held at that moment,
+  from the bot's own held-item timeline, so the weapon component is answerable rather than
+  guessable.
 
 ## Fairness constraints enforced during generation
 
@@ -79,7 +83,12 @@ into the ground truth.
    range for several consecutive attack ticks with the camera on it. An earlier session
    contained a panda kill that happened entirely off camera. In the shipped session, 0 of 25
    kills were rejected by this gate.
-3. **No blind-guessable runs.** Build palettes alternate within each layer and the mine is cut
+3. **Every scored placement was witnessed.** Before each block the player backs off and, if
+   the block is not in frame, walks around to that block's own side of the structure — which
+   is also how a person builds. A block that still cannot be framed is placed (so the
+   building completes) but excluded from the ledger. In the shipped session 5 placements were
+   excluded this way.
+4. **No blind-guessable runs.** Build palettes alternate within each layer and the mine is cut
    through layered strata, so long runs of one repeated block no longer dominate the ledger —
    closing the earlier weakness where a plausible-house guess partly matched.
 
