@@ -163,9 +163,14 @@ bot.once('spawn', async () => {
       const z = Math.floor(centre.z + Math.sin(a) * radius);
       const su = surfaceOf(x, z);
       if (!su || !DRY.has(su.name)) continue;
-      bot.chat(`/tp Builder ${x + 0.5} ${su.position.y + 1} ${z + 0.5}`);
-      await sleep(900);
-      await smoothLookAt(centre, 0.5, 4);
+      // Walk to the next vantage instead of teleporting — a /tp between stops is a jump cut, and
+      // the orbit stops sit only a few blocks apart on the circle, so walking reads as a person
+      // circling their build. Fall back to /tp if the pathfinder cannot get there in time, so a
+      // blocked route never stalls the session.
+      const dest = new Vec3(x + 0.5, su.position.y + 1, z + 0.5);
+      if (bot.entity.position.distanceTo(dest) <= 14) await gotoNear(dest, 1, 7000);
+      if (bot.entity.position.distanceTo(dest) > 2.5) { bot.chat(`/tp Builder ${dest.x} ${dest.y} ${dest.z}`); await sleep(700); }
+      await smoothLookAt(centre, 0.5, 5);
       if (!structureVisible(centre, half)) { log('orbit-blocked at ' + [x, z]); continue; }
       await sleep(1100); shown++;
     }
