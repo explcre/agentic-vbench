@@ -84,7 +84,7 @@ echo SERVER_READY
 cd "$TOOLS"
 # P1_HOSTILES/P1_EXTRA_BUILDS: the real client renders every mob and we want the richer showcase,
 # so the authentic path fights creepers/zombies/skeletons/spiders and builds a desert temple.
-MC_VERSION=1.20.4 MC_PORT=$PORT NO_VIEWER=1 P1_HOSTILES=1 P1_EXTRA_BUILDS=1 P1_PHASES="$PHASES" \
+MC_VERSION=1.20.4 MC_PORT=$PORT NO_VIEWER=1 P1_HOSTILES=1 P1_EXTRA_BUILDS=1 P1_CAMERA_FOLLOW=1 P1_PHASES="$PHASES" \
   node bot_play8.js "$OUT/play.json" "$OUT/GO" "$OUT/DONE" > "$OUT/bot.log" 2>&1 & BOT=$!
 for i in $(seq 1 40); do grep -qi 'Builder joined' "$OUT/server.log" && break; sleep 2; done
 grep -qi 'Builder joined' "$OUT/server.log" || { echo "BOT_NEVER_JOINED"; tail -5 "$OUT/bot.log"; kill $BOT $SRVPID $XVFB; exit 5; }
@@ -149,11 +149,9 @@ const mineflayer=require("mineflayer");
 const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
 const s=ms=>new Promise(r=>setTimeout(r,ms));
 b.once("spawn",async()=>{ b.chat("/gamemode spectator Camera"); await s(600);
-  // Teleport first, THEN attach. /spectate relies on the client already having the target entity
-  // loaded; a plain /tp makes the server stream the chunks around the bot, so by the time the camera
-  // attaches it has a world to look at rather than dark empty space.
-  b.chat("/tp Camera Builder"); await s(900);
-  b.chat("/spectate Builder Camera"); await s(900); process.exit(0);});
+  // Seed the camera onto the bot. Continuous following is done by the BOT itself (/tp Camera Builder
+  // on a loop, P1_CAMERA_FOLLOW): /spectate froze on teleport, so it is not used.
+  b.chat("/tp Camera Builder"); await s(900); process.exit(0);});
 b.on("error",()=>process.exit(1));' >> "$OUT/spectate.log" 2>&1 || true
 }
 SPECTATE_OK=0
@@ -171,20 +169,7 @@ done
   grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
   kill $CLIENT $BOT $SRVPID $XVFB; exit 8; }
 
-# PERSISTENT camera follower. A one-shot /spectate attaches the camera once and then FREEZES when the
-# bot teleports away (to a biome thousands of blocks off, a build site, an orbit vantage): the
-# spectator cannot stream the far chunks and the recording sticks on the last view. That is the
-# "same angle, nothing can be seen" the whole Java render suffered. This stays connected for the
-# entire session and re-attaches the camera to the bot a few times a second, so after every teleport
-# the camera snaps back onto the action within a moment.
-node -e '
-const mineflayer=require("mineflayer");
-const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Follower",version:"1.20.4",auth:"offline"});
-const s=ms=>new Promise(r=>setTimeout(r,ms));
-b.once("spawn",async()=>{ b.chat("/gamemode spectator Follower"); await s(300);
-  for(;;){ b.chat("/spectate Builder Camera"); await s(700); } });
-b.on("error",()=>{});' >> "$OUT/follower.log" 2>&1 & FOLLOWER=$!
-echo "FOLLOWER_STARTED pid=$FOLLOWER"
+# (camera following is handled inside the bot via P1_CAMERA_FOLLOW — see bot_play8.js)
 
 # Wait for the client to actually be showing the WORLD before recording anything. A fixed sleep is
 # not enough: under software GL, at a relocated world spawn, 25 s still left the client on the flat
@@ -220,7 +205,7 @@ touch "$OUT/GO"                            # start the session
 for i in $(seq 1 450); do [ -f "$OUT/DONE" ] && break; sleep 4; done
 sleep 4
 kill -INT $CAP 2>/dev/null || true; wait $CAP 2>/dev/null || true
-kill $CLIENT $BOT ${FOLLOWER:-} 2>/dev/null || true; sleep 2; kill $SRVPID $XVFB 2>/dev/null || true
+kill $CLIENT $BOT 2>/dev/null || true; sleep 2; kill $SRVPID $XVFB 2>/dev/null || true
 
 if grep -q 'biome-miss\|mob-miss' "$OUT/bot.log" "$OUT/play.json.crash.log" 2>/dev/null; then
   echo "WARN world commands are being refused — check ops.json"; fi

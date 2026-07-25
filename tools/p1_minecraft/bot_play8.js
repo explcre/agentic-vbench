@@ -81,6 +81,17 @@ bot.once('spawn', async () => {
   // a loading screen. Landing dry up front makes the first frame a real view.
   setTimeout(async () => { try { await landDry(bot.entity.position.x, bot.entity.position.z); }
                            catch (_) {} }, 2500);
+  // HARD camera-follow (authentic path). /spectate attaches the camera once and then freezes when
+  // this bot teleports across the world — verified by frame: the whole render was a static spawn
+  // view. Instead, the always-connected bot itself teleports the Camera onto its own position and
+  // facing a few times a second, so the camera tracks the action even across long jumps. The Camera
+  // renders no chat (chatVisibility:2), so the /tp feedback never appears on the graded frame.
+  if (process.env.P1_CAMERA_FOLLOW === '1') {
+    setInterval(() => { try {
+      bot.chat('/tp Camera Builder');       // copy the bot's position + exact facing (no angle math)
+      bot.chat('/tp Camera ~ ~1.62 ~');     // raise to EYE level — feet-level buries the camera in the floor
+    } catch (_) {} }, 350);
+  }
   bot.chat('/gamerule doDaylightCycle false'); bot.chat('/time set day'); bot.chat('/weather clear');
   bot.chat('/gamerule mobGriefing false'); bot.chat('/gamerule doMobSpawning false'); bot.chat('/gamerule doTileDrops false');
   for (const it of ['diamond_pickaxe','diamond_axe','diamond_shovel','diamond_sword','bow','arrow 64'])
