@@ -2,6 +2,8 @@
 
 **Family:** `agentic_vbench_understanding` · **Proposed task id:** `minecraft-gameplay-ledger-s1`
 
+Branch **`pengchx-minecraft-gameplay-ledger`** (branched off `main`, this task only, for a focused review): <https://github.com/explcre/agentic-vbench/tree/pengchx-minecraft-gameplay-ledger>. The generator is bundled in the task dir as `generator/`.
+
 ## Is it hard enough / long-horizon?
 A **53-minute first-person** Minecraft session: the player crosses all eight biomes (three passes,
 re-rolled block palettes each pass), gathers many block types, builds three structures on camera (a
@@ -110,7 +112,7 @@ carries the full length-vs-difficulty analysis; raw trajectories per harness are
 - **length:** 53.1 min. **resolution:** 1280×720. **audio:** none (see Modalities).
 
 ## Programmatic large-scale generation ⭐
-This is a **generator**, not a single clip. `tools/p1_minecraft/bot_play8.js` plays a parameterised
+This is a **generator**, not a single clip. `generator/bot_play8.js` plays a parameterised
 session on a seeded world — biomes visited, structures built, mob roster, tool use, and **number of
 laps** (`P1_LAPS`) are all knobs — and render → ground truth is one command with **zero annotation**.
 The two shipped instances are the same program at different settings:
@@ -160,7 +162,7 @@ ground truth:
    the video does not show.
 
 ## Reproducibility
-Regenerable from a seed: `tools/p1_minecraft/` (Paper 1.16.5 + mineflayer-pathfinder bot
+Regenerable from a seed: `generator/` (Paper 1.16.5 + mineflayer-pathfinder bot
 `bot_play8.js` + prismarine-viewer first-person + ffmpeg). No manual annotation. The HUD, the vanilla
 block-break crack and the hit-flash are composited from the *real* game assets at the bot's own event
 times, because the headless renderer draws none of them. `finish_session.sh` runs the whole
@@ -178,6 +180,6 @@ An **authentic real-client route** (real Minecraft 1.20.4, camera slaved to the 
 was prototyped for higher visual fidelity, but its camera does **not** reliably follow a bot that
 teleports across the world — `/spectate` fixes the camera at the bot's initial position and does not
 track subsequent moves in this headless offline setup, so the recording freezes on the spawn view. It
-is therefore **not** part of the shipped task; `tools/p1_minecraft/AUTHENTIC_RENDER_ROUTES.md` records
+is therefore **not** part of the shipped task; `generator/AUTHENTIC_RENDER_ROUTES.md` records
 the attempts and the open camera-follow problem. The headless renderer is the deliverable precisely
 because its camera cannot desync from the bot.
