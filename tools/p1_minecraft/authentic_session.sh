@@ -39,7 +39,7 @@ FF=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.g
 [ -s "$MC/bin/client.jar" ] || { echo "PREFLIGHT_FAIL no 1.20.4 client"; exit 3; }
 [ -x "$J" ]                 || { echo "PREFLIGHT_FAIL no JDK 21";       exit 3; }
 grep -q onboardAccessibility "$MC/options.txt" || { echo "PREFLIGHT_FAIL options.txt missing the onboarding opt-out"; exit 3; }
-/usr/bin/python3 "$TOOLS/make_ops.py" "$SRV" Builder Director   # NOT Camera -- op leaks command echo
+/usr/bin/python3 "$TOOLS/make_ops.py" "$SRV" Builder Director Follower   # NOT Camera -- op leaks command echo
 grep -q '"name": "Builder"' "$SRV/ops.json" || { echo "PREFLIGHT_FAIL Builder not op'd"; exit 3; }
 grep -q '"name": "Camera"'  "$SRV/ops.json" && { echo "PREFLIGHT_FAIL Camera must NOT be op (chat leak)"; exit 3; }
 # hide chat in the client too, belt and braces against any broadcast we did not anticipate
@@ -171,6 +171,21 @@ done
   grep -i 'removed player\|died\|suffocat' "$OUT/server.log" | tail -3
   kill $CLIENT $BOT $SRVPID $XVFB; exit 8; }
 
+# PERSISTENT camera follower. A one-shot /spectate attaches the camera once and then FREEZES when the
+# bot teleports away (to a biome thousands of blocks off, a build site, an orbit vantage): the
+# spectator cannot stream the far chunks and the recording sticks on the last view. That is the
+# "same angle, nothing can be seen" the whole Java render suffered. This stays connected for the
+# entire session and re-attaches the camera to the bot a few times a second, so after every teleport
+# the camera snaps back onto the action within a moment.
+node -e '
+const mineflayer=require("mineflayer");
+const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Follower",version:"1.20.4",auth:"offline"});
+const s=ms=>new Promise(r=>setTimeout(r,ms));
+b.once("spawn",async()=>{ b.chat("/gamemode spectator Follower"); await s(300);
+  for(;;){ b.chat("/spectate Builder Camera"); await s(700); } });
+b.on("error",()=>{});' >> "$OUT/follower.log" 2>&1 & FOLLOWER=$!
+echo "FOLLOWER_STARTED pid=$FOLLOWER"
+
 # Wait for the client to actually be showing the WORLD before recording anything. A fixed sleep is
 # not enough: under software GL, at a relocated world spawn, 25 s still left the client on the flat
 # loading-terrain screen (dominant colour share 0.66 over 12 quantised colours). screen_state.py
@@ -205,7 +220,7 @@ touch "$OUT/GO"                            # start the session
 for i in $(seq 1 450); do [ -f "$OUT/DONE" ] && break; sleep 4; done
 sleep 4
 kill -INT $CAP 2>/dev/null || true; wait $CAP 2>/dev/null || true
-kill $CLIENT $BOT 2>/dev/null || true; sleep 2; kill $SRVPID $XVFB 2>/dev/null || true
+kill $CLIENT $BOT ${FOLLOWER:-} 2>/dev/null || true; sleep 2; kill $SRVPID $XVFB 2>/dev/null || true
 
 if grep -q 'biome-miss\|mob-miss' "$OUT/bot.log" "$OUT/play.json.crash.log" 2>/dev/null; then
   echo "WARN world commands are being refused — check ops.json"; fi

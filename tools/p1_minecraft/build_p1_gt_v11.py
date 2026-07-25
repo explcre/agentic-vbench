@@ -85,8 +85,10 @@ def score(sub, tag):
         subprocess.run(["/usr/bin/python3", str(tests / "judge.py"), "--solution", str(td / "sol.json"),
                         "--reward-json", str(td / "r.json"), "--reward-txt", str(td / "r.txt")], check=True)
         r = json.loads((td / "r.json").read_text())
-        print(f"  {tag:10s} reward={r['reward']:.4f}  ledger={r['details']['ledger_f1']:.4f} "
-              f"weapon={r['details']['weapon_f1']:.4f}")
+        d = r["details"]
+        ledger = d.get("ledger_fbeta", d.get("ledger_f1", 0.0))     # F-beta (new) or F1 (old)
+        print(f"  {tag:10s} reward={r['reward']:.4f}  ledger={ledger:.4f} "
+              f"weapon={d['weapon_f1']:.4f}")
         return r["reward"]
 
 rng = random.Random(0)

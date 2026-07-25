@@ -27,32 +27,41 @@ ground_truth:
   verification: oracle solution.json = the bot's action order; judge.py scores it 1.0.
 
 scorer:
-  metric: "0.85 * LCS-F1 over ordered (action,target) + 0.15 * LCS-F1 over ordered kill weapons."
+  metric: "0.85 * order-aware F2 (recall-weighted, beta=2) over ordered (action,target)
+           + 0.15 * weapon score over LCS-aligned kills."
   oracle_reward: 1.0
   null_reward: 0.0
-  measured_ablations:      # same GT, deliberately wrong submissions
-    shuffled_ledger: 0.35  # right multiset, wrong order
-    single_token_xN: 0.10  # most common token repeated
-    targets_wrong: 0.16    # actions right, every target replaced by "stone"
+  measured_ablations:       # same GT, deliberately wrong submissions, under the shipped F2 scorer
+    shuffled_ledger: 0.245  # right multiset, wrong order — order sensitivity, not a shortcut
+    single_token_xN: 0.081  # most common (action,target) repeated
+    targets_wrong: 0.026    # actions right, every target replaced by "stone"
 
-difficulty: {strong_agent_reward: TBD, tool_call_turns: TBD, agent_model: TBD}
+difficulty:
+  strong_agent_reward: 0.164   # Codex gpt-5.6-sol (xhigh), fresh run under the F2 instruction
+  tool_call_turns: 241
+  agent_model: "codex gpt-5.6-sol, model_reasoning_effort=xhigh"
+  note: "recall-limited: 0.79 precision but 0.13 recall — a strong agent identifies what it
+         watches but does not watch the whole 53-min video. Not <0.10; honest MEDIUM. See
+         calibration/scores.md for the length-vs-difficulty analysis (v30 19min -> v31 53min)."
 
 anti_shortcut:
   single_frame: 0.0             # Codex given one mid-video frame: correctly wrote an empty ledger
-  most_common_token_xN: 0.069   # the single commonest (action, target), repeated
-  actions_right_targets_stone: 0.024
-  correct_multiset_shuffled: 0.231   # order sensitivity, not a shortcut — see Known limitations
+  most_common_token_xN: 0.081   # the single commonest (action, target), repeated
+  actions_right_targets_stone: 0.026
+  correct_multiset_shuffled: 0.245   # order sensitivity, not a shortcut — see Known limitations
   empty: 0.0
-  frame_dump_no_tools: pending  # 19-min video at 1fps is >1000 frames, far past context; measuring
+  frame_dump_no_tools: 0.0      # a 53-min video at 1 fps is >3000 frames, far past any context window
 
 input:
-  url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game_v30.mp4
-  sha256: 6096f2448205fb08fec8542fbead652f51e6f069248997459d9b945d9fde7c00
-  length_min: 19.1
+  url: https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game_v31_long.mp4
+  sha256: 24623fc3fd7e4fdf8a78a5322bfa0374b6dd6fff975eb178e74e270e9f3a097c
+  length_min: 53.1
   resolution: 720
-  contents: 248 events (83 mine, 147 place, 18 kill); 44 distinct block/mob types;
-            biomes forest, beach, desert, snowy tundra, jungle, plains, savanna, badlands;
-            3 structures built on camera (cabin, well, watchtower); a staircase mine.
+  contents: 633 events (166 mine, 422 place, 45 kill); 43 distinct block/mob types;
+            biomes forest, beach, desert, snowy tundra, jungle, plains, savanna, badlands (x3 laps,
+            re-rolled palettes); 3 structures built on camera (cabin, well, watchtower); a staircase
+            mine. The SAME generator also emits a 19-min / 248-event instance (game_v30.mp4) and can
+            scale to any length — see the scaling note below.
 ```
 
 ## Notes
@@ -100,16 +109,18 @@ into the ground truth.
 
 ## Known limitations
 
-- Order-aware scoring still leaves part of the reward recoverable from the target multiset
-  alone; the shuffled-ledger ablation at **0.231** quantifies that ceiling. This is reported as a
-  property, not a shortcut: reproducing the exact multiset of 248 events requires watching the whole
-  video, so it is most of the work rather than a way around it. The genuine shortcuts —
-  most-common-token (0.069) and actions-right-targets-wrong (0.024) — are both well under 0.15.
-- **Weapon credit is gated on ledger alignment.** Scoring the kill-weapon sequence independently was
-  nearly free, because there are only two weapon classes: a submission that named every block
-  "stone" scored ledger 0.028 and weapon 1.000, reaching reward 0.174. Weapon credit is now granted
-  only on kills inside the ledger's LCS alignment, which drops that ablation to 0.024 and leaves the
-  oracle at exactly 1.0.
+- **The task is a MEDIUM, not sub-0.10.** Codex scores 0.164 (F2, 53-min video). The difficulty is
+  recall-limited: 0.79 precision, 0.13 recall. Order-aware LCS-F2 is deliberately generous to a
+  confident partial answer, so a strong agent that reconstructs ~13% in order scores ~0.16. Recall
+  weighting (F2, beta=2) was adopted to punish confident-partial answers; it lowered the number only
+  slightly because the agent reports more events when recall is weighted. See calibration/scores.md.
+- Order-aware scoring leaves part of the reward recoverable from the target multiset alone; the
+  shuffled ablation at **0.245** quantifies that ceiling — a property (reproducing the exact
+  633-event multiset means watching the whole video), not a shortcut. The genuine shortcuts,
+  most-common-token (0.081) and actions-right-targets-wrong (0.026), are both under 0.15.
+- **Weapon credit is gated on ledger alignment.** Scored independently it was nearly free (two weapon
+  classes): an all-"stone" answer scored ledger 0.03 and weapon 1.0. Credit is now granted only on
+  kills inside the ledger's LCS alignment; the oracle stays at exactly 1.0.
 - **The closed vocabulary is asserted against the ledger at build time.** The staircase mine records
   the real blocks it digs, so the vocabulary must cover the terrain of every biome on the route, not
   just the gather categories. `build_p1_gt_v11.py` refuses to emit a task whose ground truth contains
@@ -119,8 +130,9 @@ into the ground truth.
   that metric is ±1–2 points and is driven by spawn terrain, so it is reported rather than optimised
   against.
 - **Every structure is verified visible from the camera.** The generator raycasts to each finished
-  build and checks the first block hit belongs to it, logging `ORBIT_SHOWN n/m`: v30 records 6/6 for
-  the cabin, 5/5 for the watchtower and 5/5 for the well. Placements the camera missed are not
-  silently written into the world — they are deferred and placed for real on camera in a second pass
-  (v30: 49 recovered, 0 residual), so nothing exists in the finished build that is absent from the
-  ledger.
+  build and checks the first block hit belongs to it, logging `ORBIT_SHOWN n/m` (cabin 6/6,
+  watchtower 5/5, well 5/5). Placements the camera missed are not silently written into the world —
+  they are deferred and placed for real on camera in a second pass (residual 0), so nothing exists in
+  the finished build that is absent from the ledger. Each element is built as one screen-left-to-right
+  run from a fixed vantage, so the fill direction matches the camera, and the space above every
+  placed block is cleared so none is tucked under an overhang.
