@@ -107,7 +107,11 @@ node -e '
 const mineflayer=require("mineflayer");
 const b=mineflayer.createBot({host:"localhost",port:'"$PORT"',username:"Director",version:"1.20.4",auth:"offline"});
 b.once("spawn",async()=>{const s=ms=>new Promise(r=>setTimeout(r,ms));
-  b.chat("/gamerule sendCommandFeedback false"); await s(400);
+  // sendCommandFeedback stays ON: the gameplay bot reads /locate biome output to travel to biomes,
+  // and turning it off silently broke that on every Java render (all traveled biomes were missed).
+  // The graded-video leak is prevented where it actually shows up -- the Camera renders NO chat
+  // (chatVisibility:2) and is not op -- plus logAdminCommands off stops the op broadcast.
+  b.chat("/gamerule sendCommandFeedback true");  await s(400);
   b.chat("/gamerule logAdminCommands false");    await s(400);
   b.chat("/gamerule doDaylightCycle false");     await s(300);
   b.chat("/time set day"); await s(300); b.chat("/weather clear"); await s(300);

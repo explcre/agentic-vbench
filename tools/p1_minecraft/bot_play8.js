@@ -377,21 +377,12 @@ bot.once('spawn', async () => {
       bot.on('message',h); bot.chat(locateCmd(biome)); setTimeout(()=>{bot.removeListener('message',h);resolve(null);},ms); });
   }
   async function tpToBiome(biome) {
-    // /locate biome searches out to thousands of blocks and can take well over 8 s on a busy 1.20
-    // server (e.g. while night-time hostiles are spawning), and a biome may not be near the current
-    // search origin at all. Give it a generous window, and on a miss jump a few thousand blocks and
-    // search again from there — a whole render used to lose six biomes (and the desert temple) to a
-    // single tight timeout.
-    let found = await locateOnce(biome, 20000);
-    if (!found) {
-      const p = bot.entity.position;
-      for (const [ox, oz] of [[4000, 0], [-4000, 3000], [0, -5000]]) {
-        bot.chat(`/tp Builder ${Math.floor(p.x + ox)} 200 ${Math.floor(p.z + oz)}`); await sleep(3000);
-        found = await locateOnce(biome, 20000);
-        if (found) break;
-        log('biome-retry ' + biome + ' from ' + [Math.floor(p.x + ox), Math.floor(p.z + oz)]);
-      }
-    }
+    // Read /locate biome output for the nearest match. This REQUIRES sendCommandFeedback on (the
+    // authentic session sets it; turning it off to stop a chat leak silently broke biome travel on
+    // every Java render). One generous attempt, then one retry in place for a transient miss — no
+    // long teleport, which previously flung the bot into ungenerated chunks and guaranteed a miss.
+    let found = await locateOnce(biome, 12000);
+    if (!found) { await sleep(500); found = await locateOnce(biome, 12000); }
     if(!found){ log('biome-miss '+biome); return false; }
     bot.chat(`/tp Builder ${found[0]} 150 ${found[1]}`); await sleep(4000);   // load the chunk
     const ok = await landDry(found[0], found[1]);
