@@ -1,3 +1,22 @@
+# UPDATE — the /spectate camera does NOT follow a teleporting bot (frozen render)
+
+Verified by frame, not metric: in a full authentic render the frame at a house-build event and the
+frame at the orbit are **pixel-identical** — the camera is frozen on the spawn-forest view the whole
+session while the bot builds, mines and fights elsewhere. `/spectate Builder Camera` fixes the camera
+at the bot's *initial* position and does not track subsequent moves/teleports in this headless
+offline 1.20.4 setup. A persistent re-spectate follower did not help (and disconnected after ~3 s).
+Colour-variance and screen_state checks all passed because a frozen frame is still a valid *world*
+view — they cannot detect "frozen but valid", which is why this went unnoticed for many renders.
+
+Consequence: the authentic route is NOT usable as a shipped video with the current far-teleporting
+session. The graded task uses the headless first-person render, whose camera IS the bot and therefore
+cannot desync (verified frame-by-frame). If the authentic route is revived, the camera-follow must be
+solved first — candidates not yet tried to completion: `/tp Camera Builder` every tick (hard-follow
+instead of /spectate), or restructuring the session to stay in a compact area (fabricated local biome
+patches) so a spectator can keep up.
+
+---
+
 # Authentic Minecraft rendering — routes, evidence, and recommendation
 
 The shipped task (v23) renders with **prismarine-viewer**, a headless JS world renderer, and
