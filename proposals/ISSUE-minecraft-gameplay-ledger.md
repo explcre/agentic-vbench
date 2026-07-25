@@ -66,21 +66,25 @@ Measured on the shipped ground truth: **oracle 1.0** (harness path), correct-mul
 **0.245**, most-common-token-repeated **0.081**, actions-right-every-target-wrong **0.026**, empty
 **0.0**.
 
-## Difficulty (measured)
+## Difficulty (calibration in progress)
 | harness | reward | tool-calls | notes |
 |---|---|---|---|
 | **Codex `gpt-5.6-sol` (xhigh)** | **0.164** | 241 | fresh run under the F2 instruction on the 53-min video |
 | Antigravity (Gemini-3.x) | *to run* | | |
 | Claude Code (Opus 4.8 / Fable 5) | *to run* | | |
 
-**Honest characterisation: this is a MEDIUM task (~0.16), not sub-0.10.** The difficulty is
+**Honest standing: 0.164 — close to the family's <0.10 bar but not under it**, stated here rather
+than massaged (the automated `check_task.py` structure/oracle/baseline/rollout checks all PASS; only
+the strong-agent gate is above 0.10). The difficulty is
 **recall-limited** — Codex has 0.79 precision (it names what it looks at well) but 0.13 recall (it
 does not watch the whole 53-min video). Order-aware LCS is deliberately generous to a confident
 partial answer, so a strong agent that correctly reconstructs ~13% in order scores ~0.16. Two data
 points show length lowers it (v30 19-min ≈ 0.29 under the old F1 scorer → v31 53-min = 0.164), but
 the agent compensates for longer video by working harder, so reaching <0.10 would need ~150-200 min
-— within the family's 10-300 min window but a large render. `calibration/scores.md` carries the full
-length-vs-difficulty analysis. Raw trajectories per harness are in `calibration/rollouts/`.
+— within the family's 10-300 min window but a large render. Making it genuinely harder without more
+length is still open (denser events per minute, or a second scored dimension). `calibration/scores.md`
+carries the full length-vs-difficulty analysis; raw trajectories per harness are in
+`calibration/rollouts/`.
 
 ## Anti-shortcut ablations (all ≤ 0.15 except the order-sensitivity row, which is not a shortcut)
 - **single_frame** — **0.0**. Codex given one representative frame wrote an empty ledger on its own
