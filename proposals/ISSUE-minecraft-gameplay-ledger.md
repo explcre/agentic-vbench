@@ -2,13 +2,20 @@
 
 **Family:** `agentic_vbench_understanding` · **Proposed task id:** `minecraft-gameplay-ledger-s1`
 
+> **Updated after review.**
+> 1. **Matching rule stated in the task.** Events are aligned by an **order-preserving longest-common-subsequence** on the `(action, target)` tokens — gap-tolerant, so one missed/extra/wrong event costs only *that* event and the rest still match — and there is **no time tolerance and no timestamp matching**, only relative order.
+> 2. **Palette nameability confirmed.** Block/mob **textures are stock Minecraft** for exactly the closed vocabulary; re-rolled palettes vary only *which* named blocks appear, never how a block looks, so every on-screen block/mob maps to one vocabulary entry with no legend lookup. Stated in the instruction.
+> 3. **Calibration per the README.** Codex `gpt-5.6-sol` (xhigh) = **0.164** on this instance (honest medium, recall-limited; the automated structure/oracle/baseline/rollout checks pass, only the strong-agent gate is above 0.10). Raw trajectories in `calibration/rollouts/`; table below.
+> 
+> The graded video was also **re-rendered occlusion-safe**: every mined/placed block is brought into clear line of sight before the action (the generator raycasts to the target and repositions the camera, skipping any block it cannot show unoccluded), verified by viewing forest-gather, cabin-build and staircase-mine frames.
+
 Branch **`pengchx-minecraft-gameplay-ledger`** (branched off `main`, this task only, for a focused review): <https://github.com/explcre/agentic-vbench/tree/pengchx-minecraft-gameplay-ledger>. The generator is bundled in the task dir as `generator/`.
 
 ## Is it hard enough / long-horizon?
 A **53-minute first-person** Minecraft session: the player crosses all eight biomes (three passes,
 re-rolled block palettes each pass), gathers many block types, builds three structures on camera (a
 peaked-roof cottage, a village well, a watchtower), fights animals with **both a sword and a bow**,
-takes a boat, and digs a staircase mine through layered rock for every ore. That is **633 deliberate
+takes a boat, and digs a staircase mine through layered rock for every ore. That is **628 deliberate
 actions over 43 distinct block and mob types**. Reconstructing the *ordered* ledger means watching
 the whole video, naming each block/mob from its rendered texture, telling apart the weapon used for
 each kill, and getting the order right. A single frame, one modality, or a schema guess cannot
@@ -20,7 +27,7 @@ any length in between or beyond — see *Programmatic large-scale generation*.
 
 ## Cognitive level
 **understanding** — track object identity (block type / mob type), action type, and the weapon used,
-and order 633 events across 53 minutes. Not a lookup.
+and order 628 events across 53 minutes. Not a lookup.
 
 ## Modalities required
 - **video** — required; the ledger exists only across frames (a block breaking, the camera turning
@@ -65,7 +72,7 @@ is scored, not timestamps.
   two weapon classes let an all-"stone" answer reach weapon 1.0 on a 0.03 ledger.)
 
 Measured on the shipped ground truth: **oracle 1.0** (harness path), correct-multiset-but-shuffled
-**0.245**, most-common-token-repeated **0.081**, actions-right-every-target-wrong **0.026**, empty
+**0.224**, most-common-token-repeated **0.081**, actions-right-every-target-wrong **0.027**, empty
 **0.0**.
 
 ## Difficulty (calibration in progress)
@@ -92,24 +99,24 @@ carries the full length-vs-difficulty analysis; raw trajectories per harness are
 - **single_frame** — **0.0**. Codex given one representative frame wrote an empty ledger on its own
   reasoning that one frame yields no ordered sequence.
 - **no_media** — the event distribution is not knowable blind: most-common-token **0.081**,
-  wrong-targets **0.026**.
+  wrong-targets **0.027**.
 - **frame_dump_no_tools** — **0.0** in practice: a 53-min video at 1 fps is >3000 frames, far past
   any context window, so an agent cannot ingest it without seeking tools.
-- **shuffled** — **0.245**. Build palettes alternate *within* each layer and the mine cuts layered
+- **shuffled** — **0.224**. Build palettes alternate *within* each layer and the mine cuts layered
   strata, so there is no long run of one block for a "plausible build" guess to match. This is order
-  sensitivity, not a shortcut: reproducing the exact 633-event multiset means watching the whole
+  sensitivity, not a shortcut: reproducing the exact 628-event multiset means watching the whole
   video.
 - The HUD shows hearts/hunger/XP and the selected hotbar slot, but **no action log and no block or
   mob labels**, so it never states an answer; the held-weapon indicator is the intended evidence for
   the `tool` field.
 
 ## Input media
-- **url:** `https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game_v31_long.mp4`
+- **url:** `https://huggingface.co/datasets/explcre/agenticvbench-understanding-materials/resolve/main/minecraft-gameplay-ledger-s1/game_v32.mp4`
   (self-rendered, self-hosted; not scraped → no famous-footage leakage).
-- **sha256:** `24623fc3fd7e4fdf8a78a5322bfa0374b6dd6fff975eb178e74e270e9f3a097c`, pinned in
+- **sha256:** `406d447d43b9b9ebadb2ebe5b9cb54cf4e7b7f48c3874bf6a6b9c045260512b2`, pinned in
   `environment/Dockerfile` and verified against the downloaded bytes (not just the upload's exit
   status).
-- **length:** 53.1 min. **resolution:** 1280×720. **audio:** none (see Modalities).
+- **length:** 53.3 min. **resolution:** 1280×720. **audio:** none (see Modalities).
 
 ## Programmatic large-scale generation ⭐
 This is a **generator**, not a single clip. `generator/bot_play8.js` plays a parameterised
@@ -120,7 +127,7 @@ The two shipped instances are the same program at different settings:
 | instance | laps | length | events | how it was produced |
 |---|---|---|---|---|
 | `game_v30.mp4` | 1 | 19 min | 248 | `P1_LAPS=1` |
-| `game_v31_long.mp4` (graded) | 3 | 53 min | 633 | `P1_LAPS=3` |
+| `game_v31_long.mp4` (graded) | 3 | 53 min | 628 | `P1_LAPS=3` |
 
 The space of distinct, machine-labeled sessions is effectively unlimited (seed × biome route × build
 set × mob mix × laps), so the benchmark can **mint an arbitrary number of fresh instances at any
