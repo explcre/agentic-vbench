@@ -22,6 +22,7 @@ HERO=${6:-$(echo "$KARTS" | cut -d, -f1)}
 # the field minus the hero becomes the AI list; the hero is the player kart the camera tracks
 AI=$(echo "$KARTS" | tr ',' '\n' | grep -vx "$HERO" | paste -sd, -)
 echo "$KARTS" | tr ',' '\n' | grep -qx "$HERO" || { echo "HERO '$HERO' not in KARTS '$KARTS'"; exit 8; }
+HERE=$(dirname "$(readlink -f "$0")")
 STK=${STK:?set STK to the SuperTuxKart 1.5 install dir (contains run_game.sh)}
 # Pick a free X display. Reusing a fixed :77 silently broke the second race of a suite:
 # the previous Xvfb had not released the lock, the new one died with "Server is already
@@ -41,6 +42,15 @@ DISP=":$DISPNUM"
 W=${W:-1280}; H=${H:-720}   # run_suite.sh exports these so the HUD mask is
                             # derived from the SAME size that is rendered
 mkdir -p "$OUT"
+
+# PER-RACE CONFIG HOME. Races run in parallel, so a shared STK config is two problems at once:
+# concurrent races race on the config write, and whatever the host happens to have set overrides
+# the HUD defaults that generator/hud_mask.py derives the powerup-mask box from. Give each race its
+# own fresh HOME/XDG dirs inside its own output directory, so the config STK writes is an artifact
+# of that race and can be audited afterwards.
+STKHOME="$OUT/stkhome"
+mkdir -p "$STKHOME/.config" "$STKHOME/.local/share"
+export HOME="$STKHOME" XDG_CONFIG_HOME="$STKHOME/.config" XDG_DATA_HOME="$STKHOME/.local/share"
 
 FF=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())" 2>/dev/null || echo ffmpeg)}
 
@@ -69,6 +79,10 @@ echo "STK_EXIT=$RC"
 
 # A race with no usable video is a failed race, not a quiet one.
 test -s "$OUT/race_raw.mp4" || { echo "NO_VIDEO_RECORDED for $TRACK"; exit 5; }
+
+# The powerup-mask box is derived for STK's DEFAULT indicator placement and size, so assert on
+# the config THIS race wrote rather than trusting the environment (see check_hud_config.sh).
+bash "$HERE/check_hud_config.sh" "$STKHOME"
 DUR=$("${FFPROBE:-ffprobe}" -v error -show_entries format=duration -of csv=p=0 "$OUT/race_raw.mp4" || echo 0)
 awk -v d="$DUR" 'BEGIN{exit !(d>30)}' || { echo "VIDEO_TOO_SHORT ${DUR}s for $TRACK"; exit 6; }
 echo "$HERO" > "$OUT/hero.txt"

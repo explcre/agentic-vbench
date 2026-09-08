@@ -75,10 +75,29 @@ git apply .../generator/stk-actual-skid.patch
 cmake -B build_gfx -DCMAKE_BUILD_TYPE=Release && cmake --build build_gfx -j
 ```
 
-Assets come from the 1.5 binary release (`SUPERTUXKART_DATADIR`, `SUPERTUXKART_ASSETS_DIR`). Give
-each race a writable `HOME`/`XDG_CONFIG_HOME`, or parallel races race on config writes. A fresh
-config is also what keeps the HUD mask valid: it leaves the powerup indicator at its default centre
-position and default 64 px icon size, which is what `hud_mask.py` derives the box from.
+Assets come from the 1.5 binary release (`SUPERTUXKART_DATADIR`, `SUPERTUXKART_ASSETS_DIR`).
+
+## Per-race config isolation
+
+`run_race.sh` gives each race its own `HOME`/`XDG_CONFIG_HOME`/`XDG_DATA_HOME` under
+`$OUT/stkhome`, and does not inherit the host's. Two distinct reasons, both load-bearing:
+
+1. Races run in parallel, so a shared config is written concurrently by up to `CONC` processes.
+2. The mask box in `hud_mask.py` is derived for STK's **default** indicator placement (centred,
+   `display 0`) at the default 64 px. A config that moved the indicator to the side (`display 1`)
+   or resized it would put sprites outside the box, so the shipped media would leak exactly what
+   the mask exists to hide.
+
+`check_hud_config.sh` asserts the second point on the config THAT RACE wrote, and `run_race.sh`
+calls it after the render, so a non-default HUD fails the race instead of producing quietly leaky
+media. The check is exercised in all four states (default config, `display="1"`, a resized icon, no
+config at all) and only the first passes.
+
+**The shipped render already satisfied this**, verified after the fact rather than assumed, so it
+does not need regenerating: the v3 suite left twelve independent config homes (one per race,
+`stkhome77`..`stkhome88`, matching the `STK_DISP = 77+i` the runner assigns), each written inside
+the render window, each a distinct inode from every other and from `~/.config/supertuxkart`, each
+recording `1280x720`, and each carrying `display="0"` with `powerup-icon-size="64.000000"`.
 
 ## Design notes (learned the hard way — see NOTES.md)
 
