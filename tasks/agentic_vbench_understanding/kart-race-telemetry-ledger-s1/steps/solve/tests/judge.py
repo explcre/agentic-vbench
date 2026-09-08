@@ -50,7 +50,7 @@ the GT is renormalised out so the oracle still reaches 1.0.
 
 Ground truth is baked verifier-side at /tests/ground_truth.json.
 """
-import argparse, json, math
+import argparse, json, math, os, stat
 from pathlib import Path
 
 GT_PATH = Path(__file__).with_name("ground_truth.json")
@@ -71,12 +71,52 @@ DIMS = [("items_collected", "items_collected", 0.55),
 # the <0.10 bar. It, bananas_hit, times_exploded, nitro and positions remain unscored context.
 
 
+# The agent writes /workspace/output/solution.json, so everything about that path is untrusted:
+# what it points at, what kind of file it is, and how big it is.
+MAX_SOLUTION_BYTES = 4 << 20          # 4 MiB; the oracle answer is ~2 KB and the flood test ~200 KB
+
+
+def read_solution_text(path, limit=MAX_SOLUTION_BYTES):
+    """Read the agent-controlled solution file safely, or raise.
+
+    Three separate hazards, each closed here rather than by the caller:
+      * a SYMLINK could point at the verifier's own ground truth (whose rows carry `t_start`, which
+        pred_time() accepts, so the link would score like an oracle) -- O_NOFOLLOW refuses to
+        resolve it;
+      * a FIFO or device would block the verifier forever on open or read -- O_NONBLOCK plus an
+        fstat regular-file check refuses it;
+      * an enormous file would be read entirely into memory -- the size is checked before reading
+        and the read itself is bounded.
+    """
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise ValueError("solution path is not a regular file")
+        if st.st_size > limit:
+            raise ValueError(f"solution file is {st.st_size} bytes, over the {limit}-byte limit")
+        chunks, total = [], 0
+        while True:
+            block = os.read(fd, 1 << 16)
+            if not block:
+                break
+            total += len(block)
+            if total > limit:
+                raise ValueError(f"solution file exceeds the {limit}-byte limit while reading")
+            chunks.append(block)
+    finally:
+        os.close(fd)
+    return b"".join(chunks).decode("utf-8")
+
+
 def as_num(v):
     """Parse to a FINITE float, else None. Rejects nan/inf (and their string forms) so a
     non-finite pseudo-number cannot pass the scored-field check or poison accuracy/tau."""
     try:
         f = float(v)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: JSON integers are unbounded in Python, so a literal like 10**400 parses
+        # fine and only fails when converted to float. Treat it as unusable, not as a crash.
         return None
     return f if math.isfinite(f) else None
 
@@ -263,7 +303,7 @@ def main():
     gt_races = gt["races"]
     reason, pred_races = "ok", []
     try:
-        sol = json.loads(a.solution.read_text())
+        sol = json.loads(read_solution_text(a.solution))
         pred_races = sol.get("races", [])
         if not isinstance(pred_races, list):
             # Normalize malformed `races` (null, dict, scalar, ...) to an empty list so the judge

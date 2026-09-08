@@ -105,6 +105,49 @@ def oracle_via_solve_sh():
         return json.loads(rj.read_text())["reward"]
 
 
+def score_path(path, timeout=30):
+    """Run judge.py against an arbitrary PATH (not a serialized dict) and return its reward dict.
+
+    Used for the hostile-input cases: the solution path is agent-controlled, so it may be a symlink,
+    a fifo, or huge. The judge must score those 0 without crashing and without hanging, so a timeout
+    here is a failure, not a retry.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        p = subprocess.run([sys.executable, str(JUDGE), "--solution", str(path),
+                            "--reward-json", str(d / "r.json"), "--reward-txt", str(d / "r.txt")],
+                           capture_output=True, text=True, timeout=timeout)
+        if p.returncode != 0:
+            raise AssertionError(f"judge.py CRASHED (rc={p.returncode}): {p.stderr.strip()[-300:]}")
+        return json.loads((d / "r.json").read_text())
+
+
+def hostile_inputs():
+    """Score the agent-controlled-path attacks. Returns (symlink, fifo, oversized) reward dicts.
+
+    The symlink case is the one that mattered: /tests/ground_truth.json rows carry `t_start`, which
+    pred_time() accepts as the race's time, so before the loader was hardened a link to the key
+    scored like the oracle.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        link = d / "link.json"
+        link.symlink_to(HERE / "ground_truth.json")
+        sym = score_path(link)
+
+        fifo = d / "fifo.json"
+        os.mkfifo(fifo)
+        special = score_path(fifo)
+
+        big = d / "big.json"
+        with open(big, "wb") as fh:                       # one byte over the loader's limit
+            fh.write(b'{"races": [')
+            fh.write(b" " * ((4 << 20) + 1))
+            fh.write(b"]}")
+        oversized = score_path(big)
+    return sym, special, oversized
+
+
 def main():
     full = score(oracle("mid"))
     tstart = score(oracle("tstart"))
@@ -142,6 +185,11 @@ def main():
 
     def dim(res, field, key):
         return res["details"]["dims"][field][key]
+
+    # --- agent-controlled solution path (verifier integrity) ---
+    sym, special, oversized = hostile_inputs()
+    huge = score(  # a JSON integer too large to become a float must not crash the verifier
+        {"races": [dict(r, items_collected=10 ** 400) for r in oracle("mid")["races"]]})
 
     checks = [
         ("full oracle (mid t) == 1.0", abs(full["reward"] - 1.0) < 1e-6, f"{full['reward']}"),
@@ -186,6 +234,15 @@ def main():
         ("solve.sh default path == verifier read path", def_path == ver_path and def_path is not None,
          f"solve={def_path} verifier={ver_path}"),
         ("oracle via solve.sh output == 1.0", abs(oracle_e2e - 1.0) < 1e-6, f"{oracle_e2e}"),
+        # verifier integrity: the solution path is agent-controlled
+        ("symlink to ground_truth.json -> 0.0 (was oracle-shaped)", abs(sym["reward"]) < 1e-9,
+         f"reward={sym['reward']} reason={sym['details']['reason'][:60]}"),
+        ("fifo/special file -> 0.0, no hang", abs(special["reward"]) < 1e-9,
+         f"reward={special['reward']} reason={special['details']['reason'][:60]}"),
+        ("oversized solution -> 0.0", abs(oversized["reward"]) < 1e-9,
+         f"reward={oversized['reward']} reason={oversized['details']['reason'][:60]}"),
+        ("huge JSON int does not crash; that dim scores 0", abs(huge["reward"] - W_SKID) < 1e-6,
+         f"reward={huge['reward']} items_cov={huge['details']['dims']['items_collected']['coverage']}"),
     ]
     ok = True
     for name, passed, detail in checks:
