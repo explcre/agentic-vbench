@@ -42,7 +42,28 @@ agent is expected to have (cf. #45/#46/#47/#85); the difficulty is off-HUD count
 55-min video, not tool withholding. **This is the profile the gate-setting calibration must run
 under.**
 
-## Strong-agent calibration lineup (host-run — clean image pilot PENDING)
+## CURRENT INSTANCE — what holds today
+
+Everything in the VOID sections above was measured on the previous media instance. On the media that
+ships now (`race.mp4` sha `ee7d966e…`), only the following has been measured, and only the
+agent-free part is measurable without a pilot:
+
+| quantity | value | needs an agent? |
+| --- | --- | --- |
+| oracle (through `solve.sh` → `judge.py`) | **1.0** | no |
+| blind guess, mean of 20 seeds (range 0.0000–0.0468) | **0.0173** | no |
+| correct counts at wrong times | **0.0075** | no |
+| constant answer / single frame | **0.0** | no |
+| empty answer | **0.0** | no |
+| scorer regression checks | **26/26 pass** | no |
+| `check_task.py` | passes | no |
+| strong-agent gate | **PENDING** | yes — maintainer pilot |
+| no-media ablation | **PENDING** | yes |
+
+The scorer itself is unchanged from the VOID rows, so those numbers are comparable in kind; the
+media and the key are not, which is why the agent rows do not carry over.
+
+## VOID (previous instance) — strong-agent calibration lineup
 
 Status: the numbers below are **host-run** (on our compute node; Docker is unavailable there and the
 local sandbox did **not** fully enforce the documented profile — host packages leaked via PYTHONPATH,
@@ -65,7 +86,7 @@ session transcript** (every tool call, output, turn, frame; only secrets + local
 their prior revisions. Per-dim accuracies stay low across the board (items 0.01–0.22, skid 0.00–0.06):
 no agent counts masked-HUD pickups or times cumulative drift to within 30%.
 
-## Results & ablations (shipped 2-dim scorer)
+## VOID (previous instance) — results & ablations
 
 | submission | reward | notes |
 |---|---|---|

@@ -183,11 +183,10 @@ input:
 
 ## Known limitations
 
-- **skid_time timebase is corrected but approximate.** The GT rescales each race's drift-seconds from
-  game-seconds to video-seconds by the per-race factor video_clip_duration / game_race_duration
-  (published above). The factor is a whole-race average; if the software-GL slowdown is non-uniform
-  *within* a race, the per-race drift total in video-seconds has some residual error — absorbed by the
-  ±30% accuracy tolerance. The map was measured, not assumed (see build_ground_truth.py).
+- **skid_time is measured on the video's clock, not rescaled onto it.** The rescaling this bullet
+  used to describe is gone: a patched STK integrates the drift directly in the render's own frame
+  time, so there is no whole-race average factor and no residual within-race error from one. See
+  SKID TIMEBASE above.
 - **spinouts is not scored.** The dizzy-stars spin-out is legible enough that a strong agent counts it
   well (n=3: accuracy up to 0.60), so scoring it broke the <0.10 bar; it is kept as unscored context.
 - Each race is TIME-ANCHORED: the GT tags every race with its video window and the agent must report

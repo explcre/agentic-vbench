@@ -50,6 +50,7 @@ mkdir -p "$OUT"
 # of that race and can be audited afterwards.
 STKHOME="$OUT/stkhome"
 mkdir -p "$STKHOME/.config" "$STKHOME/.local/share"
+export STKHOME
 export HOME="$STKHOME" XDG_CONFIG_HOME="$STKHOME/.config" XDG_DATA_HOME="$STKHOME/.local/share"
 
 FF=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())" 2>/dev/null || echo ffmpeg)}

@@ -14,7 +14,7 @@ run_suite.sh OUTDIR                                   # render the 12-race suite
        └─ SuperTuxKart --profile-laps --kart=HERO --ai=<rest>   # Xvfb + software GL + ffmpeg x11grab
   └─ parse_profile.py  stk_stdout.log gt.json --expect K        # profile table -> per-race GT
   └─ (concat -> race_suite.mp4; hud_mask.py derives the mask box, drawbox writes race.mp4,
-      audit_hud_mask.py then proves the indicator is gone from the file that ships)
+      verify_mask_box.py then checks the box in the file that ships equals the derived one)
   └─ build_ground_truth.py OUTDIR ground_truth.json             # hero-scoped GT (items+skid scored; spinouts context)
 ```
 
