@@ -44,24 +44,32 @@ under.**
 
 ## CURRENT INSTANCE — what holds today
 
-Everything in the VOID sections above was measured on the previous media instance. On the media that
-ships now (`race.mp4` sha `ee7d966e…`), only the following has been measured, and only the
-agent-free part is measurable without a pilot:
+The media was re-rendered on 2026-09-08 (`race.mp4` sha `1a75462b…`, 65.5 min) because the scored
+`skid_time` was changed to the quantity the prompt actually names: the seconds the drift SPARKS are
+visible, read from the particle emitter, rather than the duration of the skid STATE. On the previous
+definition 5 of the 12 races were outside the published 30 % tolerance against the drawn cue
+(sandtrack 144 %, stk_enterprise 107 %, olivermath 76 %, ravenbridge_mansion 43 %,
+cornfield_crossing 31 %), which is what the PR #106 reviewer asked us to check. See SPEC.md.
+
+Everything agent-free has been re-measured on the media that ships now:
 
 | quantity | value | needs an agent? |
 | --- | --- | --- |
-| oracle (through `solve.sh` → `judge.py`) | **1.0** | no |
-| blind guess, mean of 20 seeds (range 0.0000–0.0468) | **0.0173** | no |
-| correct counts at wrong times | **0.0075** | no |
-| constant answer / single frame | **0.0** | no |
+| oracle (through `judge.py`, the harness interface) | **1.0** | no |
+| blind guess, mean of 20 seeds (range 0.0000–0.0412) | **0.0104** | no |
+| correct counts at wrong times | **0.0** | no |
+| constant answer (every race identical) | **0.0** | no |
 | empty answer | **0.0** | no |
+| solution symlinked to the key | **0.0** | no |
 | scorer regression checks | **26/26 pass** | no |
-| `check_task.py` | passes | no |
+| shipped HUD mask vs the derived box | **exact, 0 px error over 24 frames** | no |
+| scored values | 9.34–172.38 s, 12 distinct, none degenerate | no |
 | strong-agent gate | **PENDING** | yes — maintainer pilot |
 | no-media ablation | **PENDING** | yes |
 
-The scorer itself is unchanged from the VOID rows, so those numbers are comparable in kind; the
-media and the key are not, which is why the agent rows do not carry over.
+The scorer is unchanged apart from the verifier hardening (symlink/FIFO/oversize/huge-int), so the
+VOID rows below are comparable in kind; the media and the key are not, which is why the agent rows
+do not carry over.
 
 ## VOID (previous instance) — strong-agent calibration lineup
 

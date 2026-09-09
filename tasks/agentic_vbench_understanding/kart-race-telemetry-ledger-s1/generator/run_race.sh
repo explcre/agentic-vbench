@@ -43,6 +43,12 @@ W=${W:-1280}; H=${H:-720}   # run_suite.sh exports these so the HUD mask is
                             # derived from the SAME size that is rendered
 mkdir -p "$OUT"
 
+
+FF=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())" 2>/dev/null || echo ffmpeg)}
+command -v "$FF" >/dev/null 2>&1 || [ -x "$FF" ] || { echo "no usable ffmpeg: '$FF' (resolve FFMPEG before HOME is redirected)"; exit 13; }
+FPROBE=${FFPROBE:-$(command -v ffprobe || echo /pkg/ffmpeg/4.2.2/bin/ffprobe)}
+[ -x "$FPROBE" ] || { echo "no usable ffprobe: '$FPROBE'"; exit 13; }
+
 # PER-RACE CONFIG HOME. Races run in parallel, so a shared STK config is two problems at once:
 # concurrent races race on the config write, and whatever the host happens to have set overrides
 # the HUD defaults that generator/hud_mask.py derives the powerup-mask box from. Give each race its
@@ -52,8 +58,6 @@ STKHOME="$OUT/stkhome"
 mkdir -p "$STKHOME/.config" "$STKHOME/.local/share"
 export STKHOME
 export HOME="$STKHOME" XDG_CONFIG_HOME="$STKHOME/.config" XDG_DATA_HOME="$STKHOME/.local/share"
-
-FF=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())" 2>/dev/null || echo ffmpeg)}
 
 Xvfb $DISP -screen 0 ${W}x${H}x24 -nolisten tcp &
 XVFB=$!
@@ -84,7 +88,7 @@ test -s "$OUT/race_raw.mp4" || { echo "NO_VIDEO_RECORDED for $TRACK"; exit 5; }
 # The powerup-mask box is derived for STK's DEFAULT indicator placement and size, so assert on
 # the config THIS race wrote rather than trusting the environment (see check_hud_config.sh).
 bash "$HERE/check_hud_config.sh" "$STKHOME"
-DUR=$("${FFPROBE:-ffprobe}" -v error -show_entries format=duration -of csv=p=0 "$OUT/race_raw.mp4" || echo 0)
+DUR=$("$FPROBE" -v error -show_entries format=duration -of csv=p=0 "$OUT/race_raw.mp4" || echo 0)
 awk -v d="$DUR" 'BEGIN{exit !(d>30)}' || { echo "VIDEO_TOO_SHORT ${DUR}s for $TRACK"; exit 6; }
 echo "$HERO" > "$OUT/hero.txt"
 echo "$TRACK" > "$OUT/track.txt"

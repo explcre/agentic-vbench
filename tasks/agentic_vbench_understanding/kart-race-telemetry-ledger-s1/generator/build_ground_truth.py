@@ -52,14 +52,19 @@ for d in race_dirs:
                                                                   # so their sum is kept as UNSCORED context (spinouts is not scored)
         # SCORED drift total, already in VIDEO seconds: the patched build integrates the real skid
         # state in WALL-CLOCK time, and the suite is captured by x11grab at a constant wall-clock
-        # frame rate, so this needs NO game->video rescaling. The old per-race factor was not even
-        # the right factor for this quantity: on hacienda the clip ran 1.224x longer than game time
-        # while the drift's own wall/game ratio was 1.152, and across the suite the two disagree by
-        # up to 0.241 (cocoa_temple 1.927 vs 1.686), so one factor mis-scaled what it meant to fix.
-        "skid_time": round(row["actual_skid_wall"], 2),
-        # context (unscored) - the three other drift readings, kept so the choice is auditable
-        "skid_actual_game": round(row["actual_skid_time"], 2),
-        "skid_input_game": round(row["skid_time"], 2),      # STK's stock stat: skid INPUT held
+        # frame rate, so this needs NO game->video rescaling.
+        # WHICH drift quantity is scored matters as much as the clock. The prompt defines skid_time
+        # by the VISIBLE yellow wheel sparks, and in STK those are gated on the skid bonus level and
+        # on not being in the graphical jump, not merely on the skid state. So the scored value is
+        # visible_skid_time: the time the skid particle emitter was actually creating particles,
+        # integrated per rendered frame and read back from the emitter (see the patch). The
+        # SKID_ACCUMULATE_* duration is an UPPER BOUND on it and ships as unscored context.
+        "skid_time": round(row["visible_skid_time"], 2),
+        # context (unscored) - the other drift readings, kept so the choice is auditable and the
+        # gap between "the kart was skidding" and "sparks were on screen" is visible in the GT
+        "skid_accumulate_wall": round(row["actual_skid_wall"], 2),  # SKID_ACCUMULATE_*, wall clock
+        "skid_actual_game": round(row["actual_skid_time"], 2),      # same state, game seconds
+        "skid_input_game": round(row["skid_time"], 2),              # stock stat: skid INPUT held
         "skid_showgfx_game": round(row["showgfx_skid_time"], 2),
         "_game_dur": round(max(k["time"] for k in gt["karts"]), 3),  # race length, GAME seconds
         # context (unscored): kept for reference / calibration

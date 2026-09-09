@@ -47,14 +47,35 @@ slow or airborne to actually drift. Measured on this suite it overstates visible
 any sane tolerance.
 
 `generator/stk-actual-skid.patch` applies to upstream `supertuxkart/stk-code` commit `1fb491f` and
-adds three readings taken from the skid STATE MACHINE — the same state that drives the sparks, the
-tyre marks and the skid sound:
+adds four drift readings, of which the scored one observes the particle emitter directly:
 
 | column | clock | meaning |
 | --- | --- | --- |
-| `actual_skid_wall` | wall-clock, i.e. recorded video | `SKID_ACCUMULATE_*` duration — **this is the scored `skid_time`** |
+| `visible_skid_time` | rendered frames, i.e. recorded video | time the skid particle emitter was actually creating particles — **this is the scored `skid_time`** |
+| `actual_skid_wall` | wall-clock | `SKID_ACCUMULATE_*` duration; an UPPER BOUND on the visible one (unscored context) |
 | `actual_skid_time` | game | the same state in game seconds (unscored context) |
-| `showgfx_skid_time` | game | the post-skid `SKID_SHOW_GFX_*` glow, where the emitter drops to its minimum rate (unscored context) |
+| `showgfx_skid_time` | game | the post-skid `SKID_SHOW_GFX_*` glow (unscored context) |
+
+**Why the emitter and not the skid state.** The prompt defines the scored duration by the VISIBLE
+yellow wheel sparks, and in pinned upstream STK three different predicates exist, each stricter than
+the last:
+
+- the skid state itself, `SKID_ACCUMULATE_LEFT/RIGHT`;
+- the skid marks and the skid sound, which add `!isJumping()`
+  (`graphics/skid_marks.cpp` and `karts/kart.cpp`);
+- the sparks, whose emitter rate is raised only once the skid BONUS is in play, with the
+  "tiny sparks" branch additionally requiring `!isJumping()` and a live skid state
+  (`karts/skidding.cpp`).
+
+Scoring the skid state therefore overstates what is on screen, and on this suite it overstates it by
+more than the published 30 % tolerance on FIVE of the twelve races: sandtrack by 144 %,
+stk_enterprise 107 %, olivermath 76 %, ravenbridge_mansion 43 %, cornfield_crossing 31 %. The
+per-race scored/skid-state ratio spans 0.41-1.07 (it can exceed 1: the spray continues through the
+3-4 s skid bonus after the drift itself ends). So `visible_skid_time` is read back from the emitter
+(`KartGFX::getCreationRateFloat` on `KGFX_SKIDL`/`KGFX_SKIDR`) inside `Skidding::updateGraphics`,
+which runs once per rendered frame and receives that frame's `dt`. The total is therefore in the
+recorded video's own clock and equals the spark duration by construction, rather than being argued
+to match it within a tolerance.
 
 It also titles the `off_track_count` column, which stock prints in the data rows but omits from the
 header, so header and rows now line up (`parse_profile.py` no longer drops a column by hand).

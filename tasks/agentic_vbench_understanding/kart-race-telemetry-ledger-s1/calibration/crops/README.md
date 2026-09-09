@@ -12,28 +12,36 @@ the hero is scored, so every scored event is on-camera — nothing caps the orac
    `zoom_spinout_stars.png`. A banana hit and a bomb hit produce the SAME spin-out and are NOT
    reliably distinguishable at 720p; the spin-out is UNSCORED context (it is too countable to be a
    difficulty lever), so only its visible occurrence is described here, not scored.
-3. **skid_time** (drift seconds) — drifting has a DISTINCT tell: bright **yellow sparks spray from
-   BOTH rear wheels** while the kart skids through a turn (`drift_720p.png`, `zoom_drift_sparks.png`),
-   and they VANISH the instant the kart runs straight (`zoom_no_drift_straight.png` — same kart,
-   seconds later, no sparks). So "the hero is drifting now" is witnessable, and total drift seconds
-   is scorable (hard: time + sum the drift episodes to within 30%). This is the drift skid-charge,
-   distinct from the exhaust/nitro flame.
+3. **skid_time** (visible-spark seconds) — drifting has a DISTINCT tell: bright **yellow sparks
+   spray from BOTH rear wheels** while the kart skids through a turn (`drift_720p.png`,
+   `zoom_drift_sparks.png`), and they are absent when it runs straight
+   (`zoom_no_drift_straight.png` — the same kart on the same stretch of scotland 27 s later, no
+   sparks). So "the sparks are on now" is witnessable, and their total duration is scorable (hard:
+   time + sum them to within 30%). This is the drift skid-charge, distinct from the exhaust/nitro
+   flame. The scored quantity is the SPARKS' duration, not "time spent drifting": after a long
+   drift the spray continues through the 3-4 s skid bonus, which is why the prompt asks for the
+   former (see SPEC.md, SKID DEFINITION AND TIMEBASE).
 
 ## Contested pickups at 720p
 `contested_startgrid_cluster_720p.png` / `pack_cluster_720p.png` — karts clustered around the hero
 at the start with item boxes still distinguishable (review point #73.2).
 
 **Provenance.** All frames are native 1280x720, cut from the shipped `race.mp4`
-(sha256 `ee7d966e…`) at these video timestamps:
+(sha256 `1a75462b…`) at these video timestamps:
 
 | file | video time | source race |
 | --- | --- | --- |
-| `drift_720p.png`, `zoom_drift_sparks.png` | 637.17 s | cornfield_crossing |
-| `zoom_no_drift_straight.png` | 648.17 s | cornfield_crossing — the same kart 11 s later, sparks gone |
-| `spinout_and_itembox_720p.png`, `zoom_item_box.png`, `zoom_spinout_stars.png` | 58.00 s | hacienda |
-| `hit_spinout_720p.png` | 921.47 s | lighthouse |
-| `contested_startgrid_cluster_720p.png` | 1062.30 s | gran_paradiso_island |
-| `pack_cluster_720p.png` | 24.00 s | hacienda |
+| `drift_720p.png`, `zoom_drift_sparks.png` | 2718.00 s | scotland |
+| `zoom_no_drift_straight.png` | 2745.00 s | scotland — the same kart 27 s later, sparks gone |
+| `spinout_and_itembox_720p.png`, `zoom_spinout_stars.png` | 3819.00 s | stk_enterprise — dizzy-stars with item boxes in the same frame |
+| `hit_spinout_720p.png` | 777.00 s | cornfield_crossing |
+| `zoom_item_box.png` | 1360.00 s | gran_paradiso_island |
+| `contested_startgrid_cluster_720p.png` | 12.00 s | hacienda |
+| `pack_cluster_720p.png` | 2680.00 s | scotland |
+
+Frames were located by ranking candidates on colour and then CHECKING EACH ONE BY EYE, because
+colour alone cannot tell sparks from scenery: the first candidate set for the drift frames ranked
+bright desert sand and a bomb explosion above every real drift. See generator/NOTES.md.
 
 Every full-frame crop was checked to carry the mask rectangle that `generator/hud_mask.py` requires
 (x 470..819, y 5..149, within the 3 px the lossy re-encode allows), so these frames show the same

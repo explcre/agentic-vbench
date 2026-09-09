@@ -12,7 +12,7 @@ cognitive_level: understanding
 # The camera is a chase-cam locked to one hero kart (tux) for the whole suite. For each of twelve
 # races the agent reconstructs TWO off-HUD quantities for the hero — how many powerup boxes it drove
 # through, and how many seconds it spent drifting — neither shown as a number, and the powerup HUD
-# slot is masked. Accurate fine-grained counting + a duration over a ~56-min horizon. The ranking
+# slot is masked. Accurate fine-grained counting + a duration over a ~66-min horizon. The ranking
 # column and minimap are navigation aids (position/timing), never answers.
 
 modalities_required:
@@ -65,11 +65,11 @@ scorer:
   # agent — it undercounts pickups ~half and cannot time drift to within 30%.
   oracle_reward: 1.0
   null_reward: 0.0
-  measured_ablations:            # RE-MEASURED 2026-09-04 on the current 12-race ground truth
-    correct_counts_wrong_times: 0.0075 # right counts at shuffled video times -> the time window rejects
-                                       # nearly all of them (a shuffle can land one race by chance)
-    blind_guess: 0.0173         # random values in the GT's own ranges at correct times, mean of 20
-                                # seeds (range 0.0000-0.0468); the tau gate collapses guessing
+  measured_ablations:            # RE-MEASURED 2026-09-08 on the current 12-race ground truth
+    correct_counts_wrong_times: 0.0    # right counts at shifted video times -> the time window
+                                       # rejects every one of them
+    blind_guess: 0.0104         # random values in the GT's own ranges at correct times, mean of 20
+                                # seeds (range 0.0000-0.0412); the tau gate collapses guessing
     single_frame: 0.0           # one frame -> no per-race differentiation -> constant answer -> tau 0
                                 # (measured as a constant answer at the median of each field)
     no_media: PENDING           # needs an agent run on the current media; the previous instance
@@ -78,32 +78,40 @@ scorer:
     constant_counts: 0.0         # every race identical -> predicted ties -> 0
     empty: 0.0
 
-# SKID TIMEBASE (correctness). The agent times drift off the VIDEO, so the GT has to be on the
-# video's clock. Two things separate STK's stock statistic from that clock, and both are now fixed at
-# the source instead of by rescaling:
-#   1. Stock skid_time counts the time the skid INPUT was held, not the time the kart actually
-#      drifted; on this suite it runs 1.136x-1.378x above the real drift, per race.
-#   2. Telemetry is in GAME seconds, and software-GL capture runs below realtime.
-# The patched STK (generator/stk-actual-skid.patch) integrates the REAL skid state in WALL-CLOCK
-# seconds, and x11grab records at a constant wall-clock rate, so the scored value is already in video
-# seconds. Rescaling could not have produced it: per-race render factors run 1.128-1.927 while each
-# race's own drift wall/game ratio runs 1.033-1.765, and the two disagree by as much as 0.241
-# (cocoa_temple, 1.927 vs 1.686) -- a single factor mis-scales the quantity it is meant to fix.
-# GT carries skid_actual_game, skid_input_game, skid_showgfx_game and render_speed_factor per race as
-# unscored context, so the choice is auditable. Oracle = 1.0 on the measured values.
+# SKID DEFINITION AND TIMEBASE (correctness). The agent times the sparks off the VIDEO, so the GT
+# has to be the same quantity on the same clock. Both are fixed at the source, not by rescaling.
+#   WHICH quantity. The prompt scores the seconds the drift SPARKS ARE VISIBLE, and in pinned STK
+#   that is strictly narrower than "the kart is skidding": the sparks are gated on the skid bonus
+#   level and on not being in the graphical jump, while the tyre marks and skid sound add only the
+#   jump gate (skid_marks.cpp:162, kart.cpp:2637, skidding.cpp:285). So the scored value is read
+#   from the PARTICLE EMITTER itself (KartGFX::getCreationRateFloat on KGFX_SKIDL/R), sampled once
+#   per rendered frame inside Skidding::updateGraphics. It is the drawn cue by construction, not a
+#   quantity argued to approximate it. Scoring the skid state instead would MISS by more than the
+#   published 30% tolerance on 5 of the 12 races (sandtrack 144%, stk_enterprise 107%,
+#   olivermath 76%, ravenbridge_mansion 43%, cornfield_crossing 31%) -- the reviewer's objection
+#   on PR #106, confirmed by measurement.
+#   WHICH clock. The total is integrated from the monotonic wall clock between rendered frames, and
+#   x11grab records at a constant wall-clock rate, so it is already in video seconds. Summing the
+#   graphics dt instead would measure the frame RATE (it read ~1/2 of wall time on a fast solo race
+#   and ~1/9 under load); the per-race scored/skid-state ratio now spans 0.41-1.07 against render
+#   factors of 1.27-2.24, i.e. the two are independent, which is why one average factor cannot fix
+#   either.
+# GT carries skid_accumulate_wall, skid_actual_game, skid_input_game, skid_showgfx_game and
+# render_speed_factor per race as unscored context, so the choice is auditable. Oracle = 1.0.
 
 # OBSERVABILITY — both scored quantities are visible on the hero (crops in calibration/crops/):
 #  * items_collected — the hero drives THROUGH a question-mark box (visible; HUD confirmation masked).
-#  * skid_time (drift seconds) — drift has a DISTINCT tell: bright YELLOW sparks spray from BOTH rear
-#    wheels while skidding (drift_720p.png / zoom_drift_sparks.png) and vanish the instant the kart
-#    runs straight (zoom_no_drift_straight.png). Witnessable, and its duration scorable — HARD (time
+#  * skid_time (visible-spark seconds) — drift has a DISTINCT tell: bright YELLOW sparks spray from
+#    BOTH rear wheels while skidding (drift_720p.png / zoom_drift_sparks.png) and are absent when the
+#    kart runs straight (zoom_no_drift_straight.png); after a long drift they linger for the skid
+#    bonus, which is why the prompt asks for the sparks' duration and not for "time spent drifting". Witnessable, and its duration scorable — HARD (time
 #    + sum the drifts to within 30%). spinouts (banana/bomb dizzy-stars) is NOT scored: it is legible
 #    enough to be countable by a strong agent, so it is not a difficulty lever; it stays as context.
 
 difficulty: {strong_agent_reward: 0.0885, agent_model: gemini-3.5-flash}  # host-run (CV-tool profile); clean image pilot PENDING
 # TOOL PROFILE (documented, pinned in environment/Dockerfile): numpy==2.1.3, Pillow==11.0.0,
 # opencv-python-headless==4.10.0.84 + ffmpeg + stdlib; allow_internet=false. Normal CV tools the agent
-# is expected to have; difficulty is off-HUD counting/timing over 56 min, not tool withholding.
+# is expected to have; difficulty is off-HUD counting/timing over 66 min, not tool withholding.
 # CALIBRATION STATUS -- VOID as of 2026-09-04. Every agent number below (and difficulty:
 # strong_agent_reward above) was measured on the PREVIOUS media instance, before the drift timebase
 # was fixed at the source and before the HUD mask box was corrected. STK profile mode is not
@@ -133,21 +141,21 @@ difficulty: {strong_agent_reward: 0.0885, agent_model: gemini-3.5-flash}  # host
 #   + document + pin the CV-tool profile; clean image gate-setting pilot pending
 # stdlib-sandbox trajectories + dumps pinned at HF revision
 # b49ffb9b8d83405dba6ab8dee30126bd1d53f196 (see calibration/rollouts/README.md).
-# FAIR + LEARNABLE: oracle = 1.0, blind-guess ~0.027; a within-30% agent scores far higher. Difficulty
+# FAIR + LEARNABLE: oracle = 1.0, blind-guess ~0.010; a within-30% agent scores far higher. Difficulty
 # is ACCURATE pickup-counting under a masked HUD + a drift DURATION over a 55-min video, not a hack.
 
 anti_shortcut:
   single_frame: 0.0     # one frame -> no per-race differentiation -> constant -> tau gate = 0
   no_media: 0.009       # prompt + schema only; the twelve races' quantities are not knowable blind
   ocr_only: 0.0         # neither scored quantity is on-screen text (HUD masked, off-HUD) -> guess
-  frame_dump_no_tools:  # a 55-min video at 1 fps is >3000 frames, past any context window
+  frame_dump_no_tools:  # a 66-min video at 1 fps is >3900 frames, past any context window
 
 input:
   url: https://huggingface.co/datasets/ryan-superman/agenticvbench-understanding-materials/resolve/fc1245d184355a96f0389e5718c8994f859d44f3/kart-race-telemetry-ledger-s1/race.mp4
   # Hosted under ryan-superman: the explcre account's public storage quota is exhausted. The
   # previous render remains reachable at its own explcre revision, so earlier calibration runs
   # that pinned it are unaffected. 1647690764 bytes, 50600 frames, 3373.334 s.
-  sha256: ee7d966e2f47f63c01d347b8994324bb1f1e645d27084bc562c69cb4cf8dafc8
+  sha256: 1a75462b64ff227eb713f5ba42d8e899173cf2ca56755b5aaf1300d3648142e7
   length_min: 56.2
   resolution: 720
   contents: 12 races (hacienda, snowmountain, cornfield_crossing, lighthouse, gran_paradiso_island,

@@ -10,11 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl ca-
 RUN pip install --no-cache-dir --root-user-action=ignore \
         numpy==2.1.3 Pillow==11.0.0 opencv-python-headless==4.10.0.84 \
  && python -c "import numpy, PIL, cv2; print('tool profile:', numpy.__version__, PIL.__version__, cv2.__version__)"
-ARG MATERIALS_URL=https://huggingface.co/datasets/ryan-superman/agenticvbench-understanding-materials/resolve/fc1245d184355a96f0389e5718c8994f859d44f3/kart-race-telemetry-ledger-s1/race.mp4
+ARG MATERIALS_URL=https://huggingface.co/datasets/ryan-superman/agenticvbench-understanding-materials/resolve/753407e85deaf687f760f025c9f646239a9bb8c9/kart-race-telemetry-ledger-s1/race.mp4
 # The media moved to the ryan-superman dataset: the explcre account's public storage quota is
 # exhausted. The previous render stays reachable at its own explcre revision, so calibration runs
 # that pinned it are unaffected.
-ARG MATERIALS_SHA256=ee7d966e2f47f63c01d347b8994324bb1f1e645d27084bc562c69cb4cf8dafc8
+ARG MATERIALS_SHA256=1a75462b64ff227eb713f5ba42d8e899173cf2ca56755b5aaf1300d3648142e7
 RUN mkdir -p /baked \
  && curl --fail --silent --show-error --location --retry 5 --retry-delay 3 "$MATERIALS_URL" -o /baked/race.mp4 \
  && echo "${MATERIALS_SHA256}  /baked/race.mp4" | sha256sum -c - && test -s /baked/race.mp4

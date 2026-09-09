@@ -13,10 +13,12 @@ For **each race**, reconstruct **two quantities for the hero kart**:
   the hero drove **through**. The HUD powerup indicator is **masked** (a black box covers the
   top-center slot), so there is no on-screen confirmation and no running total — you must catch
   each pickup from the hero visibly driving through a box.
-- **`skid_time`** — the **total seconds** (in video time) the hero spent **drifting** this race.
-  Drifting has a distinct look: bright **yellow sparks spray from both rear wheels** while the kart
-  skids through a turn (gone the instant it straightens out — not the same as the exhaust/boost
-  flame). Add up how long, cumulatively, the hero was drifting. This is a *duration*, not a count.
+- **`skid_time`** — the **total seconds** (in video time) the hero's **drift sparks are visible**
+  this race. Drifting has a distinct look: bright **yellow sparks spray from both rear wheels** as
+  the kart slides through a turn (not the same as the exhaust/boost flame, and not the dizzy stars of
+  a spin-out). Time **the sparks themselves**: they thicken as a slide is held, and can keep
+  spraying for a moment after the kart straightens out of a long drift. Add up how long,
+  cumulatively, they are on screen. This is a *duration*, not a count.
 
 Neither is displayed as a number anywhere. You may **optionally** also report `spinouts` (how many
 times the hero spun out — it lurches and spins with dizzy stars overhead, from a banana or a bomb),

@@ -51,35 +51,74 @@ it to the derived one, and is checked in both directions (it must report the unm
 unmasked). Frames that are black all over, the transitions between races, are why presence needs
 an agreement threshold rather than a single hit.
 
-## The drift episode log agrees with the scored total; aligning it to the video is unfinished (2026-09-06)
+## What the scored drift duration is, and two ways of measuring it that were wrong (2026-09-08)
 
-The patch emits one `skidep <kart> <start> <end>` line per drift episode, in wall-clock seconds since
-`KartWithStats::reset()`. Two things follow, and only the first is settled.
+The prompt defines the scored drift duration by the VISIBLE yellow wheel sparks. Pinned upstream STK
+has three progressively stricter predicates, so "the kart is skidding" is not that quantity:
 
-**Settled: the timeline and the scored number are one integral.** For hacienda, the 107 logged
-episodes sum to 64.83 s, which is exactly the race's scored `skid_time` of 64.83 s. So the per-episode
-timeline is not a separate estimate that might disagree with the total; it is the same accumulation,
-reported per episode.
+| cue | condition | where |
+| --- | --- | --- |
+| skid state | `SKID_ACCUMULATE_LEFT/RIGHT` | `skidding.cpp` |
+| skid marks, skid sound | the above **and** `!isJumping()` | `skid_marks.cpp:162`, `kart.cpp:2637` |
+| the sparks | emitter rate raised on the skid bonus; the level-0 "tiny sparks" branch also needs `!isJumping()` and a live skid state | `skidding.cpp:285`, `:298` |
 
-**Not settled: where those episodes land in the video.** The timestamps are relative to `reset()`,
-which runs before the track intro and the Ready/Set/Go countdown, so the offset from the start of a
-race's clip to `reset()` is not known from the log. The HUD race timer reads 00:00.100 at video
-18.20 s in the hacienda clip and shows nothing at 17.60 s, which pins the GO moment but not `reset()`,
-and the timer counts GAME seconds while the episodes are in wall-clock, so the two clocks cannot be
-equated by a constant.
+An earlier note here claimed the jump flag never clears in this build. That was wrong: it is
+decremented in `Skidding::updateGraphics`, which runs once per RENDERED frame, and these renders
+have graphics. The level-0 spark rate is also NOT zero -- `data/gfx/skid0.xml` sets 200 particles/s
+(levels 1 and 2 use 2000 and 2500) -- so sparks do appear on ordinary skids, and the gap between the
+skid state and the sparks is mostly the jump exclusion.
 
-Sampling video 163.0-172.5 s at 0.5 s steps around the longest logged episode (5.465 s) did not
-resolve it: a bright warm plume appears at 163.0-164.5 s and clear yellow wheel sparks at
-169.5-171.0 s, and at 0.5 s sampling either could be made to fit an offset in the plausible range.
-The confound to respect is that the nitro/zipper exhaust is also bright and warm-coloured, so a naive
-"look for bright yellow near the kart" detector would mix boost with drift, which is the same trap
-that made sprite detection unusable above.
+The scored value is now read from the emitter itself: `KartGFX::getCreationRateFloat` on
+`KGFX_SKIDL`/`KGFX_SKIDR`, sampled in `Skidding::updateGraphics`. That observes what is drawn instead
+of re-deriving the predicate that decides it.
 
-To finish this, pin the offset from a single unambiguous event rather than from a window: find the
-first frame after GO showing wheel sparks, set `reset_video = that time - 11.823` (the first logged
-episode), then PREDICT several later episodes and check them. Until that is done, the evidence for
-`skid_time` is the source argument (the scored state is the one that drives the spark emitter, the
-tyre marks and the skid sound) plus the sum identity above, not a frame-level match.
+**Two measurement attempts failed first, both instructive.**
+
+*Pixels do not work.* Sparks are bright yellow, but so are the dizzy-stars of a spin-out and the
+yellow of an explosion, and the nitro exhaust is bright and warm too. On labeled frames the
+"small yellow blob" count reached 1021 for dizzy-stars and 3688 for an explosion while genuine
+sparks gave 70 to 562, so no threshold separates them. This is the same conclusion the HUD-mask
+sprite audit reached, for the same reason: brightness and hue are not identity.
+
+*Summing the graphics `dt` measures frame RATE, not elapsed time.* The first emitter-based version
+accumulated the frame delta while the emitter was on. It looked plausible on a single fast race
+(about half of wall-clock) and collapsed on the loaded twelve-race run (about a ninth, with three
+races at exactly 0.00). The tell was the ratio moving with machine load. The emitter-on duration now
+comes from `StkTime::getMonoTimeMs()` deltas, like the existing wall-clock accumulator, so it is a
+duration in the recorded video's own clock regardless of how fast the render was. A clean two-lap
+probe then gave 28.13 s of emitter-on against 34.58 s of skid state, correctly ordered and a 23%
+gap.
+
+**The actual root cause: a whole-race total cleared by a mid-race reset.** Three instrument
+versions read 0.00 s on several races, and the explanations that looked obvious were all wrong. What
+settled it was a per-rendered-frame TRACE (`AGENTICVBENCH_SKIDTRACE=1`, in the patch) logging the raw
+facts instead of a derived total. On scotland it showed: graphics on (`nog=0`), the emitter present
+(`hasL=1`), the emitter running at 200/2000/2500 particles/s on 756 of 2285 hero frames -- and the
+accumulated total climbing to 25.045 s and then dropping to exactly 0.000 TWICE, at t=48.7 s and
+t=105.7 s.
+
+`Skidding::reset()` is called mid-race whenever the kart is reset, and the first version of this
+patch cleared `m_visible_skid_time` there. So every race whose last reset fell after its last drift
+reported exactly zero, and the surviving value depended on WHEN the last reset happened -- which is
+why the numbers looked track-dependent and irreproducible. The whole-race counters in
+`KartWithStats` were unaffected because that class resets once per race. The total is now
+initialised in the constructor and left alone by `reset()`, which only re-bases the clock so the gap
+across a reset is not credited as visible time.
+
+Three earlier conclusions recorded here were wrong and are withdrawn: that the 0.4 s
+`graphical-jump-time` gated the cue (setting it to 0 changed nothing), that only 1 of 15 tracks
+sustains visible drift (the survey was measuring reset timing), and that the field was degenerate
+and should be dropped. On the corrected instrument all 12 races carry 9.34-172.38 s, all distinct,
+none degenerate. The flick statistics above are still accurate as a description of how the AI
+drives; they are simply not why the totals were zero.
+
+**The general lesson.** A derived TOTAL cannot show you that it was silently reset, so each wrong
+reading invited a new mechanism to explain it. Log the raw per-frame facts first; it found this in
+one run after three wrong diagnoses.
+
+The `skidep` episode lines are retained, and the episode sum still equals the skid-state total
+exactly (107 episodes, 64.83 s, on the earlier hacienda render), which is what makes the two
+quantities comparable rather than independent guesses.
 
 ## Rendering path
 

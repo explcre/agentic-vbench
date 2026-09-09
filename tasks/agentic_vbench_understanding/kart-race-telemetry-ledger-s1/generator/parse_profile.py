@@ -53,7 +53,13 @@ KEEP = {"start_position": int, "end_position": int, "time": float, "top_speed": 
         #   actual_skid_time  - SKID_ACCUMULATE_* duration, GAME seconds
         #   actual_skid_wall  - same, WALL-CLOCK seconds == recorded-VIDEO seconds (this is scored)
         #   showgfx_skid_time - post-skid SKID_SHOW_GFX_* "bonus available" glow, GAME seconds
-        "actual_skid_time": float, "actual_skid_wall": float, "showgfx_skid_time": float}
+        "actual_skid_time": float, "actual_skid_wall": float, "showgfx_skid_time": float,
+        #   visible_skid_time - time the skid PARTICLE EMITTER was creating particles, in
+        #     rendered-frame seconds. This is the yellow-wheel-spark duration the prompt
+        #     defines the scored value by, read from the emitter itself (KartGFX SKIDL/SKIDR)
+        #     rather than re-derived, because the sparks are gated on the skid bonus level and
+        #     on not being in the graphical jump as well as on the skid state.
+        "visible_skid_time": float}
 
 karts = []
 for line in lines:
