@@ -112,6 +112,39 @@ and should be dropped. On the corrected instrument all 12 races carry 9.34-172.3
 none degenerate. The flick statistics above are still accurate as a description of how the AI
 drives; they are simply not why the totals were zero.
 
+**End-to-end validation against the video (the check that was missing).** Everything above
+validates the instrument from the SOURCE side. That is not the same as showing the number matches
+what a viewer sees, so this is the independent check, and it deliberately avoids needing a
+frame-accurate alignment between the trace clock and the video clock (the two candidate anchors
+disagreed by ~2 s, which is too coarse for interval-by-interval comparison).
+
+Method: the trace says the hero's skid emitter was ON for 40.54 s of a 117.49 s render span, i.e.
+34.5 % of the time. If that is the visible-spark duration, then that same fraction of UNIFORMLY
+sampled video frames should show sparks. 48 frames were sampled uniformly across the span from that
+race's own recording and scored BY EYE (colour cannot do it):
+
+| | value |
+| --- | --- |
+| emitter-on share, from the trace | 34.5 % |
+| frames showing spark spray at the wheels | 17 of 44 = 38.6 % |
+| binomial SE at n=44 | 7.2 % |
+| difference | 0.57 SE — consistent |
+
+Four frames were excluded as unscorable (one loading screen, two fully occluded by an item, one
+end-of-race fade). Three frames were judged conservatively as NO: the orange nitro flame with a few
+specks, a motion-blurred streak, and a yellow road marking. Flipping all three moves the fraction by
+about 2 points and changes nothing. The blue nitro/zipper flames (3 frames) are correctly not
+sparks, and the emitter measure reads only `KGFX_SKIDL/R`, so it cannot count them either.
+
+Known residual limitations, none of which this evidence hides:
+  * The integration credits the whole inter-frame interval to the state sampled at its end, so each
+    ON/OFF transition can be off by up to one rendered frame (~50 ms). With 28 ON intervals that
+    bounds the error near 1.4 s on 40.5 s, about 3 %.
+  * The quantity is wall-clock, so it is NOT reproducible across renders: the GT describes the
+    render it shipped with, which is why re-rendering means re-deriving the key.
+  * This validation covers ONE race (scotland). The other eleven rest on the same code path, not on
+    their own visual audit.
+
 **The general lesson.** A derived TOTAL cannot show you that it was silently reset, so each wrong
 reading invited a new mechanism to explain it. Log the raw per-frame facts first; it found this in
 one run after three wrong diagnoses.
