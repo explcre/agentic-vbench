@@ -142,8 +142,49 @@ Known residual limitations, none of which this evidence hides:
     bounds the error near 1.4 s on 40.5 s, about 3 %.
   * The quantity is wall-clock, so it is NOT reproducible across renders: the GT describes the
     render it shipped with, which is why re-rendering means re-deriving the key.
-  * This validation covers ONE race (scotland). The other eleven rest on the same code path, not on
-    their own visual audit.
+  * Extended to SEVEN of the twelve races on the SHIPPED media (below), not just the probe.
+
+**Extended to seven races on the shipped media.** The same alignment-free test, now run against
+`race.mp4` itself rather than a probe recording. For each race the predicted spark share is
+`skid_time / racing_span` (the racing span excludes the opening "Loading" checkerboard, detected by
+where colour appears, and a 1.5 s tail); 24 frames per race were sampled uniformly across that span
+and scored BY EYE.
+
+| race | predicted | observed | n | deviation |
+| --- | --- | --- | --- | --- |
+| sandtrack | 3.3 % | 0.0 % | 23 | 0.89 SE |
+| stk_enterprise | 5.0 % | 4.2 % | 24 | 0.19 SE |
+| cornfield_crossing | 10.8 % | 16.7 % | 24 | 0.93 SE |
+| hacienda | 25.7 % | 21.7 % | 23 | 0.43 SE |
+| lighthouse | 28.8 % | 33.3 % | 24 | 0.49 SE |
+| gran_paradiso_island | 34.7 % | 29.2 % | 24 | 0.57 SE |
+| scotland | 38.2 % | 33.3 % | 24 | 0.49 SE |
+
+Correlation r = **0.947** across predictions spanning 3.3-38.2 %, no race off by even 1 SE, and
+pooled 33 of 166 frames = **19.9 %** observed against **21.0 %** predicted (z = -0.36). A key that
+was measuring the wrong thing could not track a twelvefold range this closely.
+
+Honest limits of this audit: the scoring was NOT blind (the predictions were known), so it is
+vulnerable to unconscious bias. Two mitigations are visible in the numbers rather than asserted: the
+criterion was mechanical (yellow spray emanating from the rear wheels, which excludes the blue/orange
+nitro flame, the dizzy-stars of a spin-out, yellow road markings and bright sand), and every
+ambiguous frame was scored AGAINST the hypothesis (two nitro-plus-specks frames in hacienda scored
+NO, which pushed that race further below its prediction). Deviations also change sign across races
+rather than all favouring agreement. A blind protocol would still be stronger, and the five
+remaining races have not been audited this way.
+
+**Why render_speed_factor exists, and why it is kept.** `main_loop.cpp`'s `getLimitedDt()` clamps
+the frame delta to 50 ms ("when the computer can't keep it up, slow down the shown time instead"),
+and under software rendering our frames exceed that, so game time advances slower than the wall
+clock. That clamp IS the 1.27-2.24 factor; nothing else contributes. `setAllowLargeDt()` disables it
+and nothing calls it.
+
+Uncapping it would make game time equal wall time and the key machine-independent, and it is
+deliberately NOT done: the clamp is also what puts the footage into slow motion, and slow motion is
+what makes a sub-second drift last long enough to land in a 15 fps capture. Uncapping would shorten
+the suite to roughly 40 min, lower the effective frame rate and begin hiding the sparks the agent is
+asked to time -- reopening a gap between the key and what is visible. The machine-dependent key costs
+nothing in fairness, because the key always ships with the render it was measured on.
 
 **The general lesson.** A derived TOTAL cannot show you that it was silently reset, so each wrong
 reading invited a new mechanism to explain it. Log the raw per-frame facts first; it found this in
