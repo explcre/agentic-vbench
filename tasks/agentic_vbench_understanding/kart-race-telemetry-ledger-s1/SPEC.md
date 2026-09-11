@@ -96,7 +96,11 @@ scorer:
 #   and ~1/9 under load); the per-race scored/skid-state ratio now spans 0.41-1.07 against render
 #   factors of 1.27-2.24, i.e. the two are independent, which is why one average factor cannot fix
 #   either.
-#   VALIDATED AGAINST THE PIXELS, per race. Emitter share vs frames scored BY EYE from shuffled,
+#   VALIDATED AGAINST THE PIXELS twice. (1) TRANSITION level, on a traced probe: the offset is a
+#   single unknown (trace times are wall-clock, capture is constant-rate), found by cross-correlating
+#   a pixel proxy -- one sharp peak, r = 0.700. Blind strips then gave direction 14/14, every timing
+#   within +/-133 ms, controls 8/9; emitter-ON coincides with yellow at the wheels 92 % of the time,
+#   and the bonus phase is NOT darker than the drift itself (93.4 % vs 91.7 %). (2) PER RACE. Emitter share vs frames scored BY EYE from shuffled,
 #   opaque-id frames (the race/time mapping was not consulted until scoring was finished): 12/12
 #   races, 889 frames, r = 0.899 over shares spanning 3.3-38.2 %, pooled 15.1 % observed against
 #   14.8 % predicted (z = +0.22). Scoring every borderline call negative leaves no race deviating

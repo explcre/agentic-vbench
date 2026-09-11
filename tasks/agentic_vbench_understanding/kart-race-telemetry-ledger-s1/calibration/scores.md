@@ -66,6 +66,7 @@ Everything agent-free has been re-measured on the media that ships now:
 | solution symlinked to the key | **0.0** | no |
 | scorer regression checks | **26/26 pass** | no |
 | shipped HUD mask vs the derived box | **exact, 0 px error over 24 frames** | no |
+| TRANSITION-level blind test (traced probe): direction **14/14**, timing all within 133 ms, controls 8/9; emitter-ON -> yellow on screen **92 %** (SHOW_GFX 93.4 %, ACCUMULATE 91.7 %) | see `generator/NOTES.md` | no |
 | row-level BLIND visual validation of `skid_time`, all 12 races | **r = 0.899**, pooled 15.1 % observed vs 14.8 % predicted (889 frames, z = +0.22) | no |
 | scored values | 9.34–172.38 s, 12 distinct, none degenerate | no |
 | strong-agent gate | **PENDING** | yes — maintainer pilot |

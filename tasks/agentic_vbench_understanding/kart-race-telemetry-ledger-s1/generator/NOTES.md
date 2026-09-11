@@ -236,6 +236,59 @@ temporal alignment: prevalence agreement is an aggregate over each race. The 28 
 The scorer was the same person who built the instrument, which is why the shuffle-and-opaque-id step
 matters and why the sensitivity column is published rather than a single number.
 
+**Transition-level blind test (the reviewer's PREFERRED protocol, PR #106 round 4).** Prevalence
+agreement is an aggregate: a signal that was shifted or scrambled in time could pass it with the same
+duty cycle. This is the test that cannot be passed that way. It runs on a fresh TRACED PROBE render of
+scotland on the shipped build (`AGENTICVBENCH_SKIDTRACE=1`, 2153 hero frames, 266 s); the shipped
+media carries no trace, and no shipped artefact is affected by the probe.
+
+*Aligning the trace to the video.* `StkTime::getMonoTimeMs()` counts from STK's own start, so there is
+no absolute clock to join on. But the trace times ARE wall-clock and x11grab captures at a constant
+wall-clock rate, so `video_time = trace_time + offset` with a SINGLE unknown. The offset was found by
+cross-correlating a crude yellow-at-the-wheels pixel proxy against the telemetry square wave over
+0-40 s: a single sharp peak at **23.40 s (r = 0.700)**, neighbours 0.697 / 0.682 / 0.667, and the
+worst offsets at r = -0.117. A signal unrelated to the pixels produces no such peak at any offset, so
+the peak is itself evidence.
+
+*The blind test.* 24 strips of 8 panels each, spaced 0.133 s (two video frames): 14 strips spanning a
+telemetry transition with the change placed at a RANDOM panel, mixed with 10 control strips lying
+entirely inside a steady interval. All shuffled, opaque ids, labelled before the key was opened.
+
+| | result |
+| --- | --- |
+| transitions labelled with the correct DIRECTION (onset vs offset) | **14 / 14** |
+| timing error vs telemetry | every one within **+/-1 panel (133 ms)**; median -133 ms, mean -57 ms |
+| controls correctly reported as "no change", right polarity | **8 / 9** |
+| excluded | 1 control strip that fell on black frames |
+
+The median -133 ms is a residual offset error, not drift: the correlation grid was 0.2 s and 23.2 s
+scored almost as well as 23.4 s, so the true offset sits between them.
+
+*The one control I got wrong, and what it turned out to mean.* On S00 the telemetry says the emitter
+is ON throughout, but panels 6-8 show the blue boost flame and no spray. The trace explains the
+setup: at that instant the state flips `SKID_ACCUMULATE_RIGHT` -> `SKID_SHOW_GFX_RIGHT` and
+`bonus` drops 3.0 -> 0.0 (the boost fires), while the rate stays 2000 because
+`skidding.cpp`'s raise-branch tests `bonus_time > 0 || level == 1 || level == 2` and level is still 1,
+so the SHOW_GFX zeroing branch is never reached. That suggested the bonus phase might be
+systematically dark, which would mean the key overcounts -- about 25 %% of emitter-ON frames are in
+SHOW_GFX. Measured against the video it is NOT systematic:
+
+| telemetry | samples with yellow at the wheels |
+| --- | --- |
+| ON, still drifting (`ACCUMULATE`) | 91.7 %% (200/218) |
+| ON, bonus firing (`SHOW_GFX`) | **93.4 %% (113/121)** |
+| ON, all states | 92.0 %% (333/362) |
+| OFF | 17.2 %% (145/841) -- the crude proxy's false-positive floor (boost flames, spin-out stars) |
+
+So S00 is an individual frame-window, not a state-dependent blindness, and the suspicion it raised is
+falsified rather than left hanging. Sensitivity of the emitter signal for on-screen yellow is 92 %%;
+the 17 %% OFF rate is the proxy's own noise, which is the same limitation that makes pixel counting
+unusable as an instrument in the first place.
+
+*Honest limits.* The offset came from the pixel proxy, so the TIMING comparison is not fully
+independent of pixels; the direction result (14/14) does not depend on the offset at all, and the
+controls tolerate it. One race, one observer, and the observer built the instrument.
+
 **The general lesson.** A derived TOTAL cannot show you that it was silently reset, so each wrong
 reading invited a new mechanism to explain it. Log the raw per-frame facts first; it found this in
 one run after three wrong diagnoses.
