@@ -186,6 +186,56 @@ the suite to roughly 40 min, lower the effective frame rate and begin hiding the
 asked to time -- reopening a gap between the key and what is visible. The machine-dependent key costs
 nothing in fairness, because the key always ships with the render it was measured on.
 
+**Row-level blind validation of every race (PR #106, review round 4).** The reviewer asked for the
+remaining five races to be finished BLIND and for the low-prevalence rows to be strengthened, since
+`skid_time` carries 45 % of the reward and five wrong rows could move 0.1875, more than the 0.10
+difficulty gate. All twelve rows were therefore re-done under one protocol.
+
+*Protocol.* For each race the emitter-derived share is `skid_time / racing_span`, where the racing
+span excludes the opening "Loading" checkerboard (located by where colour first appears) and a 1.5 s
+tail. Frames were sampled uniformly across that span, sized so every race yields at least ~6.5
+EXPECTED positives (so sandtrack's 3.3 % share gets 195 frames, not 24). All 816 frames were then
+POOLED ACROSS RACES, SHUFFLED, and written out under opaque ids (`F0000`...); the id-to-race-and-time
+mapping was not consulted until every frame had been scored. Scoring criterion, fixed before looking:
+POSITIVE = yellow spray emanating from the REAR WHEELS, which excludes the blue/orange nitro flame,
+the dizzy-stars of a spin-out, yellow road markings and bright sand; UNSCORABLE = frame fully
+occluded by an item, a loading screen, or an explosion whiteout. hacienda was later given 96
+additional frames at a quarter-step offset (see below).
+
+| race | emitter `skid_time` | emitter share | blind visual | frames | deviation | if every borderline call = negative |
+| --- | --- | --- | --- | --- | --- | --- |
+| `sandtrack` | 9.34 s | 3.3 % | 1.5 % (3/195) | 195 | -1.35 SE | 1.5 % (-1.35 SE) |
+| `stk_enterprise` | 15.13 s | 5.0 % | 6.8 % (9/133) | 133 | +0.97 SE | 6.0 % (+0.57 SE) |
+| `ravenbridge_mansion` | 34.67 s | 9.4 % | 18.1 % (13/72) | 72 | +2.53 SE | 11.1 % (+0.51 SE) |
+| `cornfield_crossing` | 45.76 s | 10.8 % | 7.8 % (5/64) | 64 | -0.77 SE | 4.7 % (-1.57 SE) |
+| `olivermath` | 16.83 s | 12.1 % | 9.4 % (5/53) | 53 | -0.60 SE | 9.4 % (-0.60 SE) |
+| `cocoa_temple` | 56.34 s | 14.1 % | 14.6 % (7/48) | 48 | +0.09 SE | 10.4 % (-0.74 SE) |
+| `snowmountain` | 68.23 s | 23.1 % | 33.3 % (13/39) | 39 | +1.52 SE | 30.8 % (+1.14 SE) |
+| `hacienda` | 76.74 s | 25.7 % | 22.6 % (30/133) | 133 | -0.82 SE | 20.3 % (-1.42 SE) |
+| `fortmagma` | 71.78 s | 26.2 % | 18.9 % (7/37) | 37 | -1.01 SE | 16.2 % (-1.38 SE) |
+| `lighthouse` | 65.77 s | 28.8 % | 36.8 % (14/38) | 38 | +1.09 SE | 28.9 % (+0.02 SE) |
+| `gran_paradiso_island` | 172.38 s | 34.7 % | 38.5 % (15/39) | 39 | +0.49 SE | 28.2 % (-0.86 SE) |
+| `scotland` | 100.73 s | 38.2 % | 34.2 % (13/38) | 38 | -0.51 SE | 34.2 % (-0.51 SE) |
+
+12 races, **889 frames scored by eye**, 23 unscorable excluded. **r = 0.899** across emitter shares
+spanning 3.3-38.2 %, and pooled **15.1 % observed vs 14.8 % predicted** (134/889, z = +0.22).
+
+*The two rows that needed more than the headline.* hacienda first read 10.3 % on 39 frames
+(-2.20 SE). Rather than leave it, 96 more frames were scored at a quarter-step offset; the combined
+133 frames give 22.6 % (-0.82 SE), so the first pass was sampling noise, not a defect. That is also
+the honest warning about this method: at n=39 a single race's estimate is worth +/-7 %.
+ravenbridge_mansion is the one row still outside 2 SE as scored (+2.53). Five of its 13 positives are
+borderline calls (long yellow streaks, and an orange boost flame carrying distinct specks); scoring
+every borderline call NEGATIVE puts it at 11.1 % against 9.4 % predicted, i.e. +0.51 SE. Under that
+conservative reading **no race deviates by even 1.6 SE** (worst: cornfield_crossing -1.57).
+
+*What this does and does not establish.* It establishes that the scored quantity tracks what is drawn
+in the pixels, per race, across a twelvefold range of prevalence. It does NOT establish per-frame
+temporal alignment: prevalence agreement is an aggregate over each race. The 28 borderline calls
+(22 scored positive, 6 negative) are the method's soft spot, and the table's last column prices them.
+The scorer was the same person who built the instrument, which is why the shuffle-and-opaque-id step
+matters and why the sensitivity column is published rather than a single number.
+
 **The general lesson.** A derived TOTAL cannot show you that it was silently reset, so each wrong
 reading invited a new mechanism to explain it. Log the raw per-frame facts first; it found this in
 one run after three wrong diagnoses.

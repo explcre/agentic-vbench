@@ -54,7 +54,7 @@ below show the SCHEMA only — replace them with your own observed values for ea
 ```
 
 - `items_collected`: powerup boxes the **hero** drove through this race (a count). **Scored.**
-- `skid_time`: total **seconds** the **hero** spent drifting (yellow wheel-sparks) this race (a duration). **Scored.**
+- `skid_time`: total **seconds** the **hero**'s rear-wheel drift **sparks are visible** this race (a duration). **Scored.**
 - `t`: the video time in **seconds** (from the start) at which this race happens — any moment during
   the race, or its start. Your race is matched to the true race whose video segment contains this
   time (±15 s), so it need not be exact. **Required per race.**

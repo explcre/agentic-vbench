@@ -1,16 +1,19 @@
 # Calibration — kart-race-telemetry-ledger-s1
 
-> **VOID as of 2026-09-04 — every agent score on this page was measured on the previous media
-> instance.** Two defects were fixed at the source since: the drift timebase (a patched STK now
+> **VOID as of 2026-09-08 — every agent score on this page was measured on a superseded media
+> instance.** Three defects were fixed at the source since: the scored `skid_time` was the duration of
+> the skid STATE, which differs from the drawn spark cue by more than the published tolerance on 5 of
+> the 12 races (it is now read from the particle emitter itself); the drift timebase (a patched STK now
 > measures real drift in wall-clock seconds, replacing a rescale of a skid-INPUT statistic) and the
 > HUD mask box (hand-fitted 35 px too narrow on the left, so five held items left a 17 px sliver of
 > the leftmost icon visible). Both changes require a fresh render, and STK profile mode is not
 > reproducible run-to-run, so the current suite is a NEW instance: the strong-agent figure and the
 > agent ablations here do not transfer and the gate-setting pilot must be re-run before merge.
 > What HAS been re-measured on the current ground truth, because it needs no agent: oracle 1.0000,
-> blind_guess 0.0173 (mean of 20 seeds, 0.0000–0.0468), correct_counts_wrong_times 0.0075,
-> constant/single-frame 0.0000, empty 0.0000. The scorer itself is unchanged and its 22 regression
-> checks pass against the new ground truth.
+> blind_guess 0.0104 (mean of 20 seeds, 0.0000–0.0412), correct_counts_wrong_times 0.0000,
+> constant/single-frame 0.0000, empty 0.0000, solution-symlinked-to-the-key 0.0000. The scorer's
+> metric is unchanged (the verifier's loader was hardened) and its **26** regression checks pass
+> against the new ground truth.
 
 **Scorer (as shipped).** TIME-ANCHORED + EXACT. Each predicted race is matched to a GT race by an
 **optimal (assignment-safe, min-cost max-cardinality) bipartite matching** on its reported `t` — a
@@ -30,7 +33,7 @@ normalize to `[]` (score 0, no crash). Regression-tested in `steps/solve/tests/t
 `spinouts` is **not scored** (kept as unscored context).
 
 **Media.** SuperTuxKart profile-mode GT — 12 races × 10 karts × 4 laps on SuperTux (hardest) AI,
-camera locked to the hero kart `tux`, 56.2 min, race.mp4 sha `ee7d966e…`, 1280×720, no audio, HUD
+camera locked to the hero kart `tux`, 65.5 min, race.mp4 sha `1a75462b…`, 1280×720, no audio, HUD
 powerup slot masked with the box derived in `generator/hud_mask.py`.
 
 ## Tool profile (documented)
@@ -39,7 +42,7 @@ The task ships the standard CV/array stack **pinned in `environment/Dockerfile`*
 `Pillow==11.0.0`, `opencv-python-headless==4.10.0.84` — alongside `ffmpeg`/`ffprobe` and the Python
 stdlib, with no solve-time network (`task.toml` `allow_internet=false`). These are normal CV tools an
 agent is expected to have (cf. #45/#46/#47/#85); the difficulty is off-HUD counting/timing over a
-55-min video, not tool withholding. **This is the profile the gate-setting calibration must run
+65.5-min video, not tool withholding. **This is the profile the gate-setting calibration must run
 under.**
 
 ## CURRENT INSTANCE — what holds today
@@ -63,6 +66,7 @@ Everything agent-free has been re-measured on the media that ships now:
 | solution symlinked to the key | **0.0** | no |
 | scorer regression checks | **26/26 pass** | no |
 | shipped HUD mask vs the derived box | **exact, 0 px error over 24 frames** | no |
+| row-level BLIND visual validation of `skid_time`, all 12 races | **r = 0.899**, pooled 15.1 % observed vs 14.8 % predicted (889 frames, z = +0.22) | no |
 | scored values | 9.34–172.38 s, 12 distinct, none degenerate | no |
 | strong-agent gate | **PENDING** | yes — maintainer pilot |
 | no-media ablation | **PENDING** | yes |
@@ -112,7 +116,7 @@ no agent counts masked-HUD pickups or times cumulative drift to within 30%.
 All rows above are backed by `steps/solve/tests/test_coverage.py` (22 checks) and the family
 `check_task.py` gate. Per-dim on the host-run agents: **items** accuracy 0.01–0.22 (agents mis-count
 pickups under the masked HUD — under-counting, or over-counting when they guess high, so rarely within
-30%); **skid** accuracy 0.00–0.06 (none sum cumulative drift to within 30% over a 55-min video). Both
+30%); **skid** accuracy 0.00–0.06 (none sum cumulative drift to within 30% over a 55-min [superseded instance] video). Both
 defeat the agent; the oracle is 1.0 and a within-30% agent would score far higher.
 
 ## skid_time timebase (correctness) — SUPERSEDED 2026-09-04
@@ -139,6 +143,7 @@ hero-scope + rank agreement 0.407 → + HUD powerup mask 0.345 → + exact-count
 rank) → + time-anchored (races matched by video time ±15 s) → + skid rescaled to video-seconds
 (timebase fix) → + **drop spinouts** (too countable — with spinouts scored 0.073/0.103/0.186,
 breaking the bar) → items+skid. Host-run under the pinned CV-tool profile this settled at Codex mean
-0.027 / Gemini max **0.0885** (< 0.10); the stdlib-only cross-check (CV tools withheld) is lower still
-(max 0.0436). The authoritative gate-setting number awaits the clean image pilot (see the lineup
-section and PR #106). See `SPEC.md`.
+0.027 / Gemini max 0.0885 (< 0.10); the stdlib-only cross-check (CV tools withheld) was lower still
+(max 0.0436). **Every one of those numbers is VOID** — they were measured on superseded instances,
+the last of which also scored the wrong drift quantity. THIS instance has no strong-agent number at
+all: it awaits the clean-image pilot (see the lineup section and PR #106). See `SPEC.md`.

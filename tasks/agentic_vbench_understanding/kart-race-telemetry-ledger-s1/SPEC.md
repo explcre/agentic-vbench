@@ -11,8 +11,8 @@ task: agentic_vbench_understanding/kart-race-telemetry-ledger-s1
 cognitive_level: understanding
 # The camera is a chase-cam locked to one hero kart (tux) for the whole suite. For each of twelve
 # races the agent reconstructs TWO off-HUD quantities for the hero — how many powerup boxes it drove
-# through, and how many seconds it spent drifting — neither shown as a number, and the powerup HUD
-# slot is masked. Accurate fine-grained counting + a duration over a ~66-min horizon. The ranking
+# through, and for how many seconds its rear-wheel drift sparks are visible — neither shown as a number, and the powerup HUD
+# slot is masked. Accurate fine-grained counting + a duration over a ~65.5-min horizon. The ranking
 # column and minimap are navigation aids (position/timing), never answers.
 
 modalities_required:
@@ -96,6 +96,11 @@ scorer:
 #   and ~1/9 under load); the per-race scored/skid-state ratio now spans 0.41-1.07 against render
 #   factors of 1.27-2.24, i.e. the two are independent, which is why one average factor cannot fix
 #   either.
+#   VALIDATED AGAINST THE PIXELS, per race. Emitter share vs frames scored BY EYE from shuffled,
+#   opaque-id frames (the race/time mapping was not consulted until scoring was finished): 12/12
+#   races, 889 frames, r = 0.899 over shares spanning 3.3-38.2 %, pooled 15.1 % observed against
+#   14.8 % predicted (z = +0.22). Scoring every borderline call negative leaves no race deviating
+#   by even 1.6 SE. Full table + protocol + limitations in generator/NOTES.md.
 # GT carries skid_accumulate_wall, skid_actual_game, skid_input_game, skid_showgfx_game and
 # render_speed_factor per race as unscored context, so the choice is auditable. Oracle = 1.0.
 
@@ -108,10 +113,11 @@ scorer:
 #    + sum the drifts to within 30%). spinouts (banana/bomb dizzy-stars) is NOT scored: it is legible
 #    enough to be countable by a strong agent, so it is not a difficulty lever; it stays as context.
 
-difficulty: {strong_agent_reward: 0.0885, agent_model: gemini-3.5-flash}  # host-run (CV-tool profile); clean image pilot PENDING
+difficulty: {strong_agent_reward: PENDING, agent_model: PENDING}  # clean-image pilot on THIS instance; the
+# historical 0.0885 (Gemini 3.5-flash, host-run) was measured on a SUPERSEDED instance and does NOT qualify this one.
 # TOOL PROFILE (documented, pinned in environment/Dockerfile): numpy==2.1.3, Pillow==11.0.0,
 # opencv-python-headless==4.10.0.84 + ffmpeg + stdlib; allow_internet=false. Normal CV tools the agent
-# is expected to have; difficulty is off-HUD counting/timing over 66 min, not tool withholding.
+# is expected to have; difficulty is off-HUD counting/timing over 65.5 min, not tool withholding.
 # CALIBRATION STATUS -- VOID as of 2026-09-04. Every agent number below (and difficulty:
 # strong_agent_reward above) was measured on the PREVIOUS media instance, before the drift timebase
 # was fixed at the source and before the HUD mask box was corrected. STK profile mode is not
@@ -142,21 +148,23 @@ difficulty: {strong_agent_reward: 0.0885, agent_model: gemini-3.5-flash}  # host
 # stdlib-sandbox trajectories + dumps pinned at HF revision
 # b49ffb9b8d83405dba6ab8dee30126bd1d53f196 (see calibration/rollouts/README.md).
 # FAIR + LEARNABLE: oracle = 1.0, blind-guess ~0.010; a within-30% agent scores far higher. Difficulty
-# is ACCURATE pickup-counting under a masked HUD + a drift DURATION over a 55-min video, not a hack.
+# is ACCURATE pickup-counting under a masked HUD + a spark DURATION over a 65.5-min video, not a hack.
 
 anti_shortcut:
   single_frame: 0.0     # one frame -> no per-race differentiation -> constant -> tau gate = 0
-  no_media: 0.009       # prompt + schema only; the twelve races' quantities are not knowable blind
+  no_media: PENDING     # forced-answer ablation on THIS instance (maintainer-run); the previous instance
+                        # measured 0.009 and does not transfer
   ocr_only: 0.0         # neither scored quantity is on-screen text (HUD masked, off-HUD) -> guess
   frame_dump_no_tools:  # a 66-min video at 1 fps is >3900 frames, past any context window
 
 input:
-  url: https://huggingface.co/datasets/ryan-superman/agenticvbench-understanding-materials/resolve/fc1245d184355a96f0389e5718c8994f859d44f3/kart-race-telemetry-ledger-s1/race.mp4
-  # Hosted under ryan-superman: the explcre account's public storage quota is exhausted. The
-  # previous render remains reachable at its own explcre revision, so earlier calibration runs
-  # that pinned it are unaffected. 1647690764 bytes, 50600 frames, 3373.334 s.
+  url: https://huggingface.co/datasets/ryan-superman/agenticvbench-understanding-materials/resolve/753407e85deaf687f760f025c9f646239a9bb8c9/kart-race-telemetry-ledger-s1/race.mp4
+  # Hosted under ryan-superman: the explcre account's public storage quota is exhausted. Superseded
+  # renders remain reachable at their own revisions, so earlier runs that pinned them are unaffected.
+  # THIS instance: revision 753407e85deaf687f760f025c9f646239a9bb8c9,
+  # 1791736342 bytes, 58984 frames, 3932.267 s (65.5 min), 1280x720 @ 15 fps, no audio.
   sha256: 1a75462b64ff227eb713f5ba42d8e899173cf2ca56755b5aaf1300d3648142e7
-  length_min: 56.2
+  length_min: 65.5
   resolution: 720
   contents: 12 races (hacienda, snowmountain, cornfield_crossing, lighthouse, gran_paradiso_island,
             sandtrack, olivermath, cocoa_temple, scotland, fortmagma, ravenbridge_mansion,

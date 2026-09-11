@@ -97,7 +97,7 @@ def main():
 
     toml = TASK / "task.toml"
     text = toml.read_text()
-    text, n = re.subn(r"\(~\d+(?:\.\d+)?\s*min total\)", "(~%.0f min total)" % runtime_min, text)
+    text, n = re.subn(r"\(~\d+(?:\.\d+)?\s*min total\)", "(~%.1f min total)" % runtime_min, text)
     toml.write_text(text)
     print("task.toml runtime -> ~%.0f min (%d substitutions)" % (runtime_min, n))
     print("\nscored values now in force:")

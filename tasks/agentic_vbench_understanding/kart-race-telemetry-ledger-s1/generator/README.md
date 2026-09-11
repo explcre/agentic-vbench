@@ -143,7 +143,7 @@ This is a generator, not a clip: tracks × karts × difficulty × laps × field 
 unlimited space of distinct, machine-labeled races. Edit the `SPECS` list in `run_suite.sh` to mint
 new instances or hold out unseen (track, kart-set) combinations. More races/laps lower a strong
 agent's score (recall of accurate counts drops); the shipped suite is **12 tracks × 10 karts × 4
-laps** on SuperTux (56.2 min).
+laps** on SuperTux (65.5 min).
 
 ## Verifier
 
@@ -151,4 +151,4 @@ Task-side, at the task dir's `steps/solve/tests/judge.py`. Scores an **exact-cou
 `clamp(tau,0,1) · within-30%-accuracy` — over the two scored hero quantities above (weights
 items 0.55 / skid_time 0.45), renormalised over fields that vary. Positions, nitro
 and the banana/explosion split are reported for context but not scored (positions are on the HUD;
-the split is not visually distinguishable). Oracle 1.0, blind guess ~0.02; the host-run 3-agent lineup (Codex / Claude Code / Gemini-3.5-flash) all scores < 0.10 (host-run with the pinned CV-tool profile: Gemini max 0.0885; stdlib cross-check max 0.0436). A clean gate-setting pilot on the finalized image is pending (see `SPEC.md` / PR #106).
+the split is not visually distinguishable). On THIS instance, measured without an agent: oracle 1.0, blind guess 0.0104 (20 seeds), wrong-times / constant / empty / symlinked-key all 0.0, 26/26 scorer regressions. The host-run 3-agent lineup (max 0.0885) was measured on superseded instances and is VOID; the clean gate-setting pilot on this instance is pending (see `SPEC.md` / PR #106).
