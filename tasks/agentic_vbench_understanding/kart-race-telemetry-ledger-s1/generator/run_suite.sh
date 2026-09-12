@@ -15,6 +15,12 @@ OUT=${1:?outdir}
 HERO=${HERO:-tux}
 LAPS=${LAPS:-4}
 CONC=${CONC:-6}                 # concurrent races
+# Same fresh-directory rule as run_race.sh: a suite re-run into a used directory would concatenate
+# whatever race*/race_raw.mp4 happened to survive from the previous attempt.
+if [ -e "$OUT" ] && [ -n "$(ls -A "$OUT" 2>/dev/null)" ] && [ "${AGENTICVBENCH_ALLOW_DIRTY_OUT:-0}" != "1" ]; then
+  echo "run_suite: output directory is not empty: $OUT (remove it, pick a fresh path, or set AGENTICVBENCH_ALLOW_DIRTY_OUT=1)"
+  exit 14
+fi
 mkdir -p "$OUT"
 HERE=$(dirname "$(readlink -f "$0")")
 FFX=${FFMPEG:-$(/usr/bin/python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())" 2>/dev/null || echo ffmpeg)}

@@ -22,6 +22,27 @@ HERO=${6:-$(echo "$KARTS" | cut -d, -f1)}
 # the field minus the hero becomes the AI list; the hero is the player kart the camera tracks
 AI=$(echo "$KARTS" | tr ',' '\n' | grep -vx "$HERO" | paste -sd, -)
 echo "$KARTS" | tr ',' '\n' | grep -qx "$HERO" || { echo "HERO '$HERO' not in KARTS '$KARTS'"; exit 8; }
+
+# FRESH OUTPUT DIRECTORY (an argument check, so it runs before the environment ones). Re-running
+# into a used directory silently mixes runs: the previous race's stkhome/config.xml is what
+# check_hud_config.sh would then assert on, and a previous race_raw.mp4 would survive a failed
+# render and be concatenated as if it were this run's.
+if [ -e "$OUT" ] && [ -n "$(ls -A "$OUT" 2>/dev/null)" ]; then
+  if [ "${AGENTICVBENCH_ALLOW_DIRTY_OUT:-0}" != "1" ]; then
+    echo "run_race: output directory is not empty: $OUT"
+    echo "  a re-run would mix this race with the previous one (stale config.xml, stale video)."
+    echo "  remove it, pick a fresh path, or set AGENTICVBENCH_ALLOW_DIRTY_OUT=1 deliberately."
+    exit 14
+  fi
+  echo "run_race: WARNING reusing non-empty $OUT (AGENTICVBENCH_ALLOW_DIRTY_OUT=1)"
+fi
+
+# generator/test_guards.sh uses this to exercise the checks above without rendering. It returns
+# after ARGUMENT validation only -- it does not vouch for STK, ffmpeg or the display.
+if [ "${AGENTICVBENCH_PRECHECK_ONLY:-0}" = "1" ]; then
+  echo "run_race: argument precheck OK for $OUT"
+  exit 0
+fi
 HERE=$(dirname "$(readlink -f "$0")")
 STK=${STK:?set STK to the SuperTuxKart 1.5 install dir (contains run_game.sh)}
 # Pick a free X display. Reusing a fixed :77 silently broke the second race of a suite:
@@ -41,6 +62,7 @@ fi
 DISP=":$DISPNUM"
 W=${W:-1280}; H=${H:-720}   # run_suite.sh exports these so the HUD mask is
                             # derived from the SAME size that is rendered
+
 mkdir -p "$OUT"
 
 

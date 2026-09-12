@@ -120,6 +120,21 @@ does not need regenerating: the v3 suite left twelve independent config homes (o
 the render window, each a distinct inode from every other and from `~/.config/supertuxkart`, each
 recording `1280x720`, and each carrying `display="0"` with `powerup-icon-size="64.000000"`.
 
+**The two guards, and the test that proves they fire.** `generator/test_guards.sh` (13 cases, pure
+stdlib + bash) exists because both guards were weaker than they looked:
+
+* `check_hud_config.sh` matched the string prefix `powerup-icon-size="64`, which also accepts **640**
+  and **64999**. It now parses the number and compares it EXACTLY against `hud_mask.POWERUP_SIZE`,
+  read from `hud_mask.py` itself rather than repeated, so the guard cannot drift from the box it
+  protects. The test covers display 1 / display 2 / 96 / 640 / 64999 / 63.999 / missing config /
+  `<PowerUp>` with no attributes, and requires each to be REJECTED with the right exit code.
+* `run_race.sh` and `run_suite.sh` re-used a populated output directory, so a re-run would assert on
+  the PREVIOUS race's `config.xml` and could concatenate a stale `race_raw.mp4` left by a failed
+  render. A non-empty output directory is now refused (exit 14) unless
+  `AGENTICVBENCH_ALLOW_DIRTY_OUT=1` is set deliberately. The check runs with the other ARGUMENT
+  validation, before the environment checks, and `AGENTICVBENCH_PRECHECK_ONLY=1` exercises it
+  without rendering.
+
 ## Design notes (learned the hard way — see NOTES.md)
 
 - **Ground truth is `--profile-laps`, not the replay recorder.** Profile mode drives all karts by
